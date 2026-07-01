@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "fiftytwoormore",
+    "slug": "fiftytwoormore",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EBE4DC"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lindan.fiftytwoormore",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "fiftytwoormore uses your location to tag where an activity happened.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.lindan.fiftytwoormore",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "fiftytwoormore uses your location to tag where an activity happened."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d38f8b0e-b843-4e89-b0bf-277b4fdc4a4e"
+      }
+    },
+    "owner": "daniel.solving"
+  }
+}
