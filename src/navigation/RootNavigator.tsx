@@ -17,6 +17,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
 import InvitationScreen from "../screens/InvitationScreen";
 import YearInReviewScreen from "../screens/YearInReviewScreen";
+import AdminScreen from "../screens/AdminScreen";
 
 const ONBOARDING_KEY = "fiftytwoormore:hasSeenOnboarding";
 
@@ -49,6 +50,7 @@ function AppNavigator() {
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
       <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
       <RootStack.Screen name="YearInReview" component={YearInReviewScreen} />
+      <RootStack.Screen name="Admin" component={AdminScreen} />
     </RootStack.Navigator>
   );
 }

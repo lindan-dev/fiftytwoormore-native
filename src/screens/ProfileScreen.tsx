@@ -56,6 +56,7 @@ export default function ProfileScreen() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [benchmarkOptIn, setBenchmarkOptIn] = useState(false);
+  const [isSuperuser, setIsSuperuser] = useState(false);
   const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
   const [showAnniversaryPicker, setShowAnniversaryPicker] = useState(false);
 
@@ -98,6 +99,13 @@ export default function ProfileScreen() {
       if (session) {
         fetchProfile(session.user.id);
         fetchPartner(session.user.id);
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .eq("role", "superuser")
+          .maybeSingle()
+          .then(({ data }) => setIsSuperuser(!!data));
       }
       setLoading(false);
     });
@@ -405,6 +413,13 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Admin (superuser only) */}
+        {isSuperuser && (
+          <Pressable style={styles.adminButton} onPress={() => navigation.navigate("Admin")}>
+            <Text style={styles.adminButtonText}>Open Admin Dashboard</Text>
+          </Pressable>
+        )}
+
         {/* Delete account */}
         <View style={[styles.card, styles.destructiveCard]}>
           <View style={styles.cardHeaderRow}>
@@ -570,5 +585,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.mutedForeground,
     marginTop: 2,
+  },
+  adminButton: {
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  adminButtonText: {
+    color: colors.foreground,
+    fontWeight: "600",
   },
 });
