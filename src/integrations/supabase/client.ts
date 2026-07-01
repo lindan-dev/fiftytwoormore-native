@@ -1,3 +1,6 @@
+// Ported from the web app's src/integrations/supabase/client.ts.
+// Only change: localStorage -> AsyncStorage, since React Native has no
+// browser storage. Everything else (URL, key, query behavior) is identical.
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
@@ -12,6 +15,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: AsyncStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: false, // no browser URL to parse magic links from
   },
 });
