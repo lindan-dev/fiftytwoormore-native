@@ -1,15 +1,26 @@
 // Ported from src/components/Auth.tsx. Validation schema and Supabase calls
 // are identical to the web version. Differences, all forced by the
 // platform:
-//  - shadcn Card/Input/Button -> RN View/TextInput/Pressable + NativeWind
+//  - shadcn Card/Input/Button -> RN View/TextInput/Pressable + StyleSheet
 //  - toast() -> Alert.alert (swap for a native toast lib later if desired)
 //  - "forgot password" redirect uses a deep link instead of window.location
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+} from "react-native";
 import { Heart } from "lucide-react-native";
 import { z } from "zod";
 import * as Linking from "expo-linking";
 import { supabase } from "../integrations/supabase/client";
+import { colors, radius, spacing } from "../theme/colors";
 
 const authSchema = z.object({
   email: z.string().trim().email("Ogiltig e-postadress").max(255),
@@ -93,19 +104,19 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-background"
+      style={styles.screen}
     >
-      <View className="flex-1 justify-center px-6">
-        <View className="items-center mb-8">
-          <Heart size={40} color="hsl(10, 80%, 65%)" />
-          <Text className="text-2xl font-bold text-foreground mt-3">fiftytwoormore</Text>
+      <View style={styles.content}>
+        <View style={styles.logoBlock}>
+          <Heart size={40} color={colors.primary} />
+          <Text style={styles.title}>fiftytwoormore</Text>
         </View>
 
-        <View className="bg-card rounded-lg p-5 shadow-soft">
-          <Text className="text-lg font-semibold text-card-foreground mb-1">
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
             {isForgotPassword ? "Återställ lösenord" : isSignUp ? "Skapa konto" : "Logga in"}
           </Text>
-          <Text className="text-sm text-muted-foreground mb-4">
+          <Text style={styles.cardSubtitle}>
             {isForgotPassword
               ? "Ange din e-post för en återställningslänk"
               : isSignUp
@@ -118,8 +129,8 @@ export default function AuthScreen() {
               placeholder="Namn"
               value={name}
               onChangeText={setName}
-              className="border border-input rounded-md px-3 py-3 mb-3 text-foreground"
-              placeholderTextColor="hsl(10, 10%, 45%)"
+              style={styles.input}
+              placeholderTextColor={colors.mutedForeground}
             />
           )}
 
@@ -129,8 +140,8 @@ export default function AuthScreen() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            className="border border-input rounded-md px-3 py-3 mb-3 text-foreground"
-            placeholderTextColor="hsl(10, 10%, 45%)"
+            style={styles.input}
+            placeholderTextColor={colors.mutedForeground}
           />
 
           {!isForgotPassword && (
@@ -139,28 +150,24 @@ export default function AuthScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              className="border border-input rounded-md px-3 py-3 mb-4 text-foreground"
-              placeholderTextColor="hsl(10, 10%, 45%)"
+              style={[styles.input, styles.inputLast]}
+              placeholderTextColor={colors.mutedForeground}
             />
           )}
 
-          <Pressable
-            onPress={handleAuth}
-            disabled={loading}
-            className="bg-primary rounded-md py-3 items-center mb-3"
-          >
+          <Pressable onPress={handleAuth} disabled={loading} style={styles.primaryButton}>
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <Text className="text-primary-foreground font-semibold">
+              <Text style={styles.primaryButtonText}>
                 {isForgotPassword ? "Skicka länk" : isSignUp ? "Skapa konto" : "Logga in"}
               </Text>
             )}
           </Pressable>
 
           {!isForgotPassword && (
-            <Pressable onPress={() => setIsSignUp(!isSignUp)} className="items-center py-1">
-              <Text className="text-sm text-muted-foreground">
+            <Pressable onPress={() => setIsSignUp(!isSignUp)} style={styles.linkButton}>
+              <Text style={styles.linkText}>
                 {isSignUp ? "Har du redan ett konto? Logga in" : "Inget konto? Skapa ett"}
               </Text>
             </Pressable>
@@ -168,9 +175,9 @@ export default function AuthScreen() {
 
           <Pressable
             onPress={() => setIsForgotPassword(!isForgotPassword)}
-            className="items-center py-1"
+            style={styles.linkButton}
           >
-            <Text className="text-sm text-muted-foreground">
+            <Text style={styles.linkText}>
               {isForgotPassword ? "Tillbaka till inloggning" : "Glömt lösenord?"}
             </Text>
           </Pressable>
@@ -179,3 +186,77 @@ export default function AuthScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  logoBlock: {
+    alignItems: "center",
+    marginBottom: spacing.xxl,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.foreground,
+    marginTop: spacing.md,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.cardForeground,
+    marginBottom: spacing.xs,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    marginBottom: spacing.lg,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.input,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    color: colors.foreground,
+  },
+  inputLast: {
+    marginBottom: spacing.lg,
+  },
+  primaryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  primaryButtonText: {
+    color: colors.primaryForeground,
+    fontWeight: "600",
+  },
+  linkButton: {
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  linkText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+  },
+});

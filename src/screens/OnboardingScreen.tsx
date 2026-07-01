@@ -1,10 +1,24 @@
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { colors } from "../theme/colors";
 
 // TODO: build out real Onboarding screen (see migration plan).
 export default function OnboardingScreen() {
   return (
-    <View className="flex-1 items-center justify-center bg-background">
-      <Text className="text-foreground text-lg">Onboarding — kommer snart</Text>
+    <View style={styles.container}>
+      <Text style={styles.text}>Onboarding — kommer snart</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+  text: {
+    fontSize: 18,
+    color: colors.foreground,
+  },
+});
