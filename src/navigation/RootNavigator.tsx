@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
+import { navigationRef } from "../lib/navigationRef";
 
 import AuthScreen from "../screens/AuthScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
@@ -89,7 +90,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {!session ? (
         <AuthNavigator />
       ) : !hasSeenOnboarding ? (

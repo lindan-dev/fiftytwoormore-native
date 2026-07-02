@@ -39,31 +39,100 @@ export default function PushNotificationTester() {
     }
   };
 
+  // The four scheduled/triggered push types, still manually invoked for
+  // now (see BACKLOG.md Ticket 2 - actual cron cadence is an open
+  // decision). Scoped to the current (superuser) account only via
+  // user_ids, so testing never sends real notifications to real couples.
+  const testTrigger = async (
+    label: string,
+    functionName: string,
+    extraBody: Record<string, unknown> = {},
+  ) => {
+    setSending(true);
+    setLastResult(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { user_ids: [user.id], ...extraBody },
+      });
+      if (error) throw error;
+
+      setLastResult(`${label}: ${JSON.stringify(data)}`);
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+      setLastResult(`${label} failed: ${error.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Send Test Push Notification</Text>
-      <Text style={styles.description}>
-        Sends a push notification to your own registered device(s). Requires a development build or
-        TestFlight build - this will not work in Expo Go or a plain simulator run.
-      </Text>
+    <View style={{ gap: spacing.sm }}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Send Test Push Notification</Text>
+        <Text style={styles.description}>
+          Sends a push notification to your own registered device(s). Requires a development build or
+          TestFlight build - this will not work in Expo Go or a plain simulator run.
+        </Text>
 
-      <Text style={styles.fieldLabel}>Title</Text>
-      <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholderTextColor={colors.mutedForeground} />
+        <Text style={styles.fieldLabel}>Title</Text>
+        <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholderTextColor={colors.mutedForeground} />
 
-      <Text style={styles.fieldLabel}>Body</Text>
-      <TextInput
-        value={body}
-        onChangeText={setBody}
-        style={styles.input}
-        multiline
-        placeholderTextColor={colors.mutedForeground}
-      />
+        <Text style={styles.fieldLabel}>Body</Text>
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          style={styles.input}
+          multiline
+          placeholderTextColor={colors.mutedForeground}
+        />
 
-      <Pressable style={[styles.button, sending && styles.buttonDisabled]} onPress={sendToSelf} disabled={sending}>
-        {sending ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={styles.buttonText}>Send to myself</Text>}
-      </Pressable>
+        <Pressable style={[styles.button, sending && styles.buttonDisabled]} onPress={sendToSelf} disabled={sending}>
+          {sending ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={styles.buttonText}>Send to myself</Text>}
+        </Pressable>
+      </View>
 
-      {lastResult && <Text style={styles.resultText}>{lastResult}</Text>}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Test Scheduled Push Triggers</Text>
+        <Text style={styles.description}>
+          These are the same push types planned to eventually replace weekly digest, midweek nudge,
+          activation, and year-in-review emails. Not yet on a real schedule - manual trigger only, scoped
+          to your own account so testing never reaches real couples.
+        </Text>
+
+        <Pressable
+          style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
+          onPress={() => testTrigger("Weekly digest", "send-weekly-digest-push")}
+          disabled={sending}
+        >
+          <Text style={styles.secondaryButtonText}>Weekly digest push</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
+          onPress={() => testTrigger("Midweek nudge", "send-midweek-nudge-push")}
+          disabled={sending}
+        >
+          <Text style={styles.secondaryButtonText}>Midweek nudge push</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
+          onPress={() => testTrigger("Activation nudge", "send-activation-nudge-push", { max_days_since_signup: 3650 })}
+          disabled={sending}
+        >
+          <Text style={styles.secondaryButtonText}>Activation nudge push</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
+          onPress={() => testTrigger("Year in review", "send-yearly-review-push")}
+          disabled={sending}
+        >
+          <Text style={styles.secondaryButtonText}>Year in review push</Text>
+        </Pressable>
+
+        {lastResult && <Text style={styles.resultText}>{lastResult}</Text>}
+      </View>
     </View>
   );
 }
@@ -113,6 +182,16 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: colors.primaryForeground,
+    fontWeight: "600",
+  },
+  secondaryButton: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.xs,
+  },
+  secondaryButtonText: {
+    color: colors.foreground,
     fontWeight: "600",
   },
   resultText: {

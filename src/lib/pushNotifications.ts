@@ -12,6 +12,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { supabase } from "../integrations/supabase/client";
+import { navigationRef } from "./navigationRef";
 
 // Foreground behavior: show an alert + play sound even while the app is
 // open, matching how the web app's toasts behave for in-app feedback.
@@ -79,4 +80,25 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
 
 export async function unregisterPushToken(token: string): Promise<void> {
   await supabase.from("push_tokens").delete().eq("token", token);
+}
+
+/**
+ * Navigates to the right screen when the user taps a notification,
+ * based on the `data` payload set when the push was sent (see the
+ * `send-*-push` edge functions). Call once, e.g. from App.tsx.
+ */
+export function addNotificationTapListener() {
+  return Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = response.notification.request.content.data as
+      | { screen?: string; year?: number }
+      | undefined;
+
+    if (!data?.screen || !navigationRef.isReady()) return;
+
+    if (data.screen === "YearInReview") {
+      navigationRef.navigate("YearInReview", { year: data.year });
+    } else if (data.screen === "Home") {
+      navigationRef.navigate("Home");
+    }
+  });
 }
