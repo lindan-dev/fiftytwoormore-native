@@ -224,7 +224,7 @@ export default function HomeScreen() {
       if (uid) {
         setUserId(uid);
         checkPartnerStatus(uid);
-        registerForPushNotificationsAsync(uid);
+        registerForPushNotificationsAsync();
       }
     });
   }, [checkPartnerStatus]);

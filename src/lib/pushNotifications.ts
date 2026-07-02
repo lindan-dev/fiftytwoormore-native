@@ -26,7 +26,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
   try {
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
@@ -57,12 +57,16 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenResponse.data;
 
-    const { error } = await supabase
-      .from("push_tokens")
-      .upsert(
-        { user_id: userId, token, device_type: Platform.OS },
-        { onConflict: "token" },
-      );
+    // Registering goes through an edge function rather than a direct
+    // client-side upsert: a push token belongs to a device, and if this
+    // device was previously registered to a different account (e.g.
+    // switching test accounts on the same simulator, or a phone changing
+    // hands), reassigning it requires deleting a row this user doesn't
+    // own - something RLS correctly blocks from the client, but which a
+    // service-role edge function can do safely.
+    const { error } = await supabase.functions.invoke("register-push-token", {
+      body: { token, device_type: Platform.OS },
+    });
 
     if (error) {
       console.error("Error saving push token:", error);
