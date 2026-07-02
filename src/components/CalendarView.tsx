@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, MapPin } from "lucide-react-native";
@@ -214,9 +215,22 @@ export default function CalendarView({ activities, currentUserId, onDelete, onUp
   };
 
   const handleDelete = (id: string) => {
-    onDelete(id);
-    setSelectedActivities((prev) => prev.filter((a) => a.id !== id));
-    if (selectedActivities.length <= 1) setSelectedDay(null);
+    Alert.alert(
+      "Delete this activity?",
+      "This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            onDelete(id);
+            setSelectedActivities((prev) => prev.filter((a) => a.id !== id));
+            if (selectedActivities.length <= 1) setSelectedDay(null);
+          },
+        },
+      ],
+    );
   };
 
   const weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"];

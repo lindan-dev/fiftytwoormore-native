@@ -5,7 +5,7 @@
 //  - HTML date/time inputs -> @react-native-community/datetimepicker
 //  - Tailwind gradient/hover states -> flat colors (no hover on touch)
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, Modal, TextInput, ScrollView, StyleSheet } from "react-native";
+import { View, Text, Pressable, Modal, TextInput, ScrollView, Alert, StyleSheet } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Trash2, Pencil, MapPin } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
@@ -122,6 +122,17 @@ export default function ActivityLog({ activities, onDelete, onUpdate, currentUse
     closeEdit();
   };
 
+  const confirmDelete = (id: string) => {
+    Alert.alert(
+      "Delete this activity?",
+      "This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => onDelete(id) },
+      ],
+    );
+  };
+
   const getSpecialDateBadge = (activityDate: string) => {
     const date = new Date(activityDate);
     const activityMonth = date.getMonth() + 1;
@@ -197,7 +208,7 @@ export default function ActivityLog({ activities, onDelete, onUpdate, currentUse
                 <Pressable onPress={() => handleEditClick(activity)} style={styles.iconButton}>
                   <Pencil size={16} color={colors.foreground} />
                 </Pressable>
-                <Pressable onPress={() => onDelete(activity.id)} style={styles.iconButton}>
+                <Pressable onPress={() => confirmDelete(activity.id)} style={styles.iconButton}>
                   <Trash2 size={16} color={colors.destructive} />
                 </Pressable>
               </View>
