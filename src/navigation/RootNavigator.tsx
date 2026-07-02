@@ -7,6 +7,7 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ExpoLinking from "expo-linking";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
@@ -28,7 +29,6 @@ function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Auth" component={AuthScreen} />
-      <AuthStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -53,10 +53,30 @@ function AppNavigator() {
   );
 }
 
+/**
+ * Extracts Supabase auth tokens from an incoming reset-password deep link.
+ * Supabase's recovery redirect appends tokens as a URL fragment
+ * (`#access_token=...&refresh_token=...&type=recovery`), not a query
+ * string - expo-linking's parse() only reads the query string, so this
+ * fragment has to be parsed manually.
+ */
+function extractRecoveryTokens(url: string): { access_token: string; refresh_token: string } | null {
+  const hashIndex = url.indexOf("#");
+  const paramsString = hashIndex >= 0 ? url.slice(hashIndex + 1) : url.split("?")[1];
+  if (!paramsString) return null;
+
+  const params = new URLSearchParams(paramsString);
+  const access_token = params.get("access_token");
+  const refresh_token = params.get("refresh_token");
+  if (!access_token || !refresh_token) return null;
+  return { access_token, refresh_token };
+}
+
 export default function RootNavigator() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -68,8 +88,11 @@ export default function RootNavigator() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+      }
       if (newSession) {
         const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
         setHasSeenOnboarding(!!seen);
@@ -79,6 +102,25 @@ export default function RootNavigator() {
     });
 
     return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // Catches the "fiftytwoormore://reset-password#access_token=..." link
+  // from the password reset email (both cold start and while running),
+  // exchanges the tokens for a session, and switches into recovery mode
+  // regardless of whatever screen the app happened to be showing.
+  useEffect(() => {
+    const handleUrl = async (url: string | null) => {
+      if (!url || !url.includes("reset-password")) return;
+      const tokens = extractRecoveryTokens(url);
+      if (!tokens) return;
+
+      const { error } = await supabase.auth.setSession(tokens);
+      if (!error) setIsPasswordRecovery(true);
+    };
+
+    ExpoLinking.getInitialURL().then(handleUrl);
+    const subscription = ExpoLinking.addEventListener("url", (event) => handleUrl(event.url));
+    return () => subscription.remove();
   }, []);
 
   if (loading) {
@@ -91,7 +133,9 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      {!session ? (
+      {isPasswordRecovery ? (
+        <ResetPasswordScreen onDone={() => setIsPasswordRecovery(false)} />
+      ) : !session ? (
         <AuthNavigator />
       ) : !hasSeenOnboarding ? (
         <OnboardingScreen

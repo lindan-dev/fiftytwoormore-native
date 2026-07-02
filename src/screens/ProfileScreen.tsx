@@ -220,28 +220,17 @@ export default function ProfileScreen() {
     if (!session?.user) return;
     setDeleting(true);
     try {
-      const { data: coupleData } = await supabase
-        .from("couples")
-        .select("*")
-        .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`)
-        .maybeSingle();
-
-      if (coupleData) {
-        const partnerId = coupleData.user1_id === session.user.id ? coupleData.user2_id : coupleData.user1_id;
-        await supabase.from("activities").delete().in("user_id", [session.user.id, partnerId]);
-        await supabase
-          .from("couples")
-          .delete()
-          .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
-      } else {
-        await supabase.from("activities").delete().eq("user_id", session.user.id);
-      }
-
-      await supabase.from("couple_invitations").delete().eq("sender_id", session.user.id);
-      await supabase.from("profiles").delete().eq("user_id", session.user.id);
-      await supabase.auth.signOut();
+      // Deletes all app data (activities, couple, invitations, profile)
+      // AND the actual auth account (email+password) - see
+      // BACKLOG.md/delete-account edge function. The old client-side-only
+      // version left the login credential intact, so "permanently
+      // deleted" wasn't accurate and re-logging in would hit a missing
+      // profile row.
+      const { error } = await supabase.functions.invoke("delete-account");
+      if (error) throw error;
 
       Alert.alert("Account Deleted", "All your data has been permanently deleted");
+      await supabase.auth.signOut();
     } catch (error: any) {
       Alert.alert("Error", error.message);
       setDeleting(false);

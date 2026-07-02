@@ -1,9 +1,10 @@
 // Ported from src/pages/ResetPassword.tsx. Reached via deep link
 // (fiftytwoormore://reset-password) after the user taps the reset email
-// link, same as AuthStack.ResetPassword registered in RootNavigator.
-import { useEffect, useState } from "react";
+// link. RootNavigator intercepts that link, exchanges the recovery tokens
+// for a session, and renders this screen directly (not as a pushed stack
+// screen) - hence onDone rather than navigation.goBack().
+import { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, StyleSheet } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { Heart } from "lucide-react-native";
 import { z } from "zod";
 import { supabase } from "../integrations/supabase/client";
@@ -19,23 +20,14 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-export default function ResetPasswordScreen() {
-  const navigation = useNavigation<any>();
+interface ResetPasswordScreenProps {
+  onDone: () => void;
+}
+
+export default function ResetPasswordScreen({ onDone }: ResetPasswordScreenProps) {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isValidToken, setIsValidToken] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setIsValidToken(true);
-      } else {
-        Alert.alert("Invalid or expired link", "Please request a new password reset link.");
-        navigation.goBack();
-      }
-    });
-  }, []);
 
   const handleResetPassword = async () => {
     setLoading(true);
@@ -51,15 +43,13 @@ export default function ResetPasswordScreen() {
       if (error) throw error;
 
       Alert.alert("Password updated!", "Your password has been successfully reset.");
-      navigation.goBack();
+      onDone();
     } catch (error: any) {
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
   };
-
-  if (!isValidToken) return null;
 
   return (
     <View style={styles.screen}>
@@ -92,8 +82,8 @@ export default function ResetPasswordScreen() {
         <Pressable style={styles.primaryButton} onPress={handleResetPassword} disabled={loading}>
           {loading ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={styles.primaryButtonText}>Update Password</Text>}
         </Pressable>
-        <Pressable onPress={() => navigation.goBack()} disabled={loading} style={styles.ghostButton}>
-          <Text style={styles.ghostButtonText}>Back to home</Text>
+        <Pressable onPress={onDone} disabled={loading} style={styles.ghostButton}>
+          <Text style={styles.ghostButtonText}>Cancel</Text>
         </Pressable>
       </View>
     </View>
