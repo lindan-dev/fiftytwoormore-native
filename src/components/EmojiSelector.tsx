@@ -8,14 +8,14 @@
 // here keeps the rest of the form (date, notes, location, save) reachable
 // without scrolling.
 //
-// Button size is derived from the card's actual measured width
-// (onLayout), not a guessed screen-width calculation - guessing at the
-// surrounding padding produced oversized buttons that only fit 4 per row
-// with leftover whitespace. Measuring the real width guarantees exactly
-// 5 columns regardless of where this is placed or how much padding
-// surrounds it.
-import { useState } from "react";
-import { View, Text, Pressable, ScrollView, LayoutChangeEvent, StyleSheet } from "react-native";
+// Rows are chunked manually into groups of 5 with percentage-width
+// buttons, rather than relying on flexWrap + a measured/guessed pixel
+// size. Two earlier approaches (guessed screen-width math, then
+// onLayout measurement) both produced only 4 columns with leftover
+// whitespace - percentage widths resolved directly by the layout engine
+// sidestep whatever timing/measurement issue caused that.
+import { useMemo } from "react";
+import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { getEmojiPresets } from "../lib/emojiLabels";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -26,31 +26,26 @@ interface EmojiSelectorProps {
 
 const COLUMNS = 5;
 const VISIBLE_ROWS = 3;
+const BUTTON_WIDTH_PERCENT = "18%"; // 5 * 18% = 90%, remaining 10% split across 4 gaps
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
 
 export default function EmojiSelector({ onSelect, selectedEmoji }: EmojiSelectorProps) {
   const emojiPresets = getEmojiPresets();
-  const [buttonSize, setButtonSize] = useState<number | null>(null);
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    // layout.width is the outer box width, i.e. it includes this View's
-    // own horizontal padding - subtract it to get the actual content
-    // width available for the emoji grid.
-    const contentWidth = e.nativeEvent.layout.width - spacing.sm * 2;
-    const gaps = (COLUMNS - 1) * spacing.xs;
-    const size = Math.floor((contentWidth - gaps) / COLUMNS);
-    if (size !== buttonSize) setButtonSize(size);
-  };
+  const rows = useMemo(() => chunk(emojiPresets, COLUMNS), [emojiPresets]);
 
   return (
-    <View style={styles.card} onLayout={handleLayout}>
-      {buttonSize && (
-        <ScrollView
-          style={{ maxHeight: (buttonSize + spacing.xs) * VISIBLE_ROWS }}
-          nestedScrollEnabled
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.grid}>
-            {emojiPresets.map(({ emoji, label }) => {
+    <View style={styles.card}>
+      <ScrollView style={styles.scrollArea} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.row}>
+            {row.map(({ emoji, label }, colIndex) => {
               const isSelected = selectedEmoji === emoji;
               return (
                 <Pressable
@@ -59,17 +54,17 @@ export default function EmojiSelector({ onSelect, selectedEmoji }: EmojiSelector
                   accessibilityLabel={label}
                   style={[
                     styles.emojiButton,
-                    { width: buttonSize, height: buttonSize },
+                    colIndex < COLUMNS - 1 && styles.emojiButtonSpacing,
                     isSelected && styles.emojiButtonSelected,
                   ]}
                 >
-                  <Text style={{ fontSize: Math.floor(buttonSize * 0.5) }}>{emoji}</Text>
+                  <Text style={styles.emojiText}>{emoji}</Text>
                 </Pressable>
               );
             })}
           </View>
-        </ScrollView>
-      )}
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -82,20 +77,30 @@ const styles = StyleSheet.create({
     borderColor: colors.primary + "33", // ~20% opacity, matches border-primary/20
     padding: spacing.sm,
   },
-  grid: {
+  scrollArea: {
+    maxHeight: 210, // approx. 3 rows at typical phone widths (buttons are ~18% width, square)
+  },
+  row: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   emojiButton: {
+    width: BUTTON_WIDTH_PERCENT,
+    aspectRatio: 1,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.input,
     alignItems: "center",
     justifyContent: "center",
   },
+  emojiButtonSpacing: {
+    marginRight: "2.5%",
+  },
   emojiButtonSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  emojiText: {
+    fontSize: 22,
   },
 });
