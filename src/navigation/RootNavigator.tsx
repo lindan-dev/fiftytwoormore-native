@@ -4,7 +4,7 @@
 // reached via a header icon (pushed as a stack screen) rather than a tab.
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Session } from "@supabase/supabase-js";
@@ -32,15 +32,22 @@ function AuthNavigator() {
   );
 }
 
-function AppNavigator({ onOnboardingComplete }: { onOnboardingComplete: () => void }) {
+// Wraps OnboardingScreen when it's opened as a replay (via the header info
+// icon) rather than as the first-run gate. In this context "complete"
+// should just close the replay and return to Home, not touch the
+// first-run AsyncStorage flag again.
+function OnboardingReplayScreen() {
+  const navigation = useNavigation();
+  return <OnboardingScreen onComplete={() => navigation.goBack()} />;
+}
+
+function AppNavigator() {
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
       <RootStack.Screen name="Home" component={HomeScreen} />
       <RootStack.Screen name="Profile" component={ProfileScreen} />
       <RootStack.Screen name="YearInReview" component={YearInReviewScreen} />
-      <RootStack.Screen name="Onboarding">
-        {() => <OnboardingScreen onComplete={onOnboardingComplete} />}
-      </RootStack.Screen>
+      <RootStack.Screen name="Onboarding" component={OnboardingReplayScreen} />
     </RootStack.Navigator>
   );
 }
@@ -93,7 +100,7 @@ export default function RootNavigator() {
           }}
         />
       ) : (
-        <AppNavigator onOnboardingComplete={() => {}} />
+        <AppNavigator />
       )}
     </NavigationContainer>
   );
