@@ -41,8 +41,10 @@ import {
   Sparkles,
   TrendingUp,
   FlaskConical,
+  Bell,
 } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
+import { registerForPushNotificationsAsync } from "../lib/pushNotifications";
 import { useAnalytics } from "../hooks/useAnalytics";
 import EmojiSelector from "../components/EmojiSelector";
 import LocationPicker, { LocationValue } from "../components/LocationPicker";
@@ -52,6 +54,7 @@ import YearGoalTracker from "../components/YearGoalTracker";
 import FunnelAnalytics from "../components/FunnelAnalytics";
 import EmailPerformance from "../components/EmailPerformance";
 import TestUserManager from "../components/TestUserManager";
+import PushNotificationTester from "../components/PushNotificationTester";
 import { colors, radius, spacing } from "../theme/colors";
 
 interface Activity {
@@ -78,7 +81,7 @@ function getCohortKeyFromAnniversary(anniversary: string): string {
 }
 
 type ViewMode = "log" | "stats" | "admin";
-type AdminTab = "funnel" | "email" | "users";
+type AdminTab = "funnel" | "email" | "users" | "push";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -205,6 +208,7 @@ export default function HomeScreen() {
       if (uid) {
         setUserId(uid);
         checkPartnerStatus(uid);
+        registerForPushNotificationsAsync(uid);
       }
     });
   }, [checkPartnerStatus]);
@@ -572,10 +576,15 @@ export default function HomeScreen() {
                 <FlaskConical size={14} color={adminTab === "users" ? colors.primary : colors.mutedForeground} />
                 <Text style={[styles.adminTabText, adminTab === "users" && styles.adminTabTextActive]}>Users</Text>
               </Pressable>
+              <Pressable style={[styles.adminTab, adminTab === "push" && styles.adminTabActive]} onPress={() => setAdminTab("push")}>
+                <Bell size={14} color={adminTab === "push" ? colors.primary : colors.mutedForeground} />
+                <Text style={[styles.adminTabText, adminTab === "push" && styles.adminTabTextActive]}>Push</Text>
+              </Pressable>
             </View>
             {adminTab === "funnel" && <FunnelAnalytics />}
             {adminTab === "email" && <EmailPerformance />}
             {adminTab === "users" && <TestUserManager />}
+            {adminTab === "push" && <PushNotificationTester />}
           </View>
         )}
 

@@ -30,11 +30,18 @@
         {
           "locationWhenInUsePermission": "fiftytwoormore uses your location to tag where an activity happened."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ED765E"
+        }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_NEW_EAS_PROJECT_ID"
+        "projectId": "d38f8b0e-b843-4e89-b0bf-277b4fdc4a4e"
       }
     }
   }
