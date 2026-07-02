@@ -54,7 +54,7 @@ const handler = async (req: Request): Promise<Response> => {
           ? `You're on a ${streakWeeks}-week streak. Keep it going!`
           : "No moments logged yet this week - there's still time.";
 
-      const sent = await sendPushToUsers(supabase, memberIds, title, body, { screen: "Home" });
+      const sent = await sendPushToUsers(supabase, memberIds, title, body, { screen: "Home", action: "openStats" });
       totalSent += sent;
       results.push({ couple_id: couple.id, sent });
     }

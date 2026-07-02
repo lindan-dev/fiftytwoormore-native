@@ -59,7 +59,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const message = NUDGE_MESSAGES[Math.floor(Math.random() * NUDGE_MESSAGES.length)];
-      const sent = await sendPushToUsers(supabase, memberIds, "fiftytwoormore", message, { screen: "Home" });
+      const sent = await sendPushToUsers(supabase, memberIds, "fiftytwoormore", message, { screen: "Home", action: "openLogDialog" });
       totalSent += sent;
       results.push({ couple_id: couple.id, sent });
     }

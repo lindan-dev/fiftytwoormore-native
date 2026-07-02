@@ -90,7 +90,7 @@ export async function unregisterPushToken(token: string): Promise<void> {
 export function addNotificationTapListener() {
   return Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data as
-      | { screen?: string; year?: number }
+      | { screen?: string; year?: number; action?: string }
       | undefined;
 
     if (!data?.screen || !navigationRef.isReady()) return;
@@ -98,7 +98,7 @@ export function addNotificationTapListener() {
     if (data.screen === "YearInReview") {
       navigationRef.navigate("YearInReview", { year: data.year });
     } else if (data.screen === "Home") {
-      navigationRef.navigate("Home");
+      navigationRef.navigate("Home", { action: data.action });
     }
   });
 }

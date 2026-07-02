@@ -55,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
       usersWithoutActivity,
       "Ready when you are 💛",
       "Log your first moment on fiftytwoormore - it only takes a few seconds.",
-      { screen: "Home" },
+      { screen: "Home", action: "openLogDialog" },
     );
 
     return new Response(

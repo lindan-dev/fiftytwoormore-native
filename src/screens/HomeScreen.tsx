@@ -25,7 +25,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
@@ -85,6 +85,7 @@ type AdminTab = "funnel" | "email" | "users" | "push";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { track } = useAnalytics();
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -273,6 +274,18 @@ export default function HomeScreen() {
       const { error: coupleError } = await supabase.from("couples").insert([{ user1_id: ids[0], user2_id: ids[1] }]);
       if (coupleError) throw coupleError;
 
+      // Push notification to both parties. This replaces the old
+      // notify-partner-connected email, which turned out to never fire in
+      // the real (code-based) connect flow - see BACKLOG.md Ticket 2.
+      // Best-effort: a failure here shouldn't block the connection itself.
+      try {
+        await supabase.functions.invoke("notify-partner-connected-push", {
+          body: { partner_id: matchingInvite.sender_id },
+        });
+      } catch (pushError) {
+        console.error("Error sending partner-connected push:", pushError);
+      }
+
       track("couple_formed");
       track("invitation_code_entered", { valid: true });
       Alert.alert("Connected!", "You and your partner are now connected.");
@@ -371,6 +384,24 @@ export default function HomeScreen() {
     );
     setDialogOpen(true);
   };
+
+  // Deep-link handling: when a push notification is tapped, pushNotifications.ts
+  // navigates here with an `action` param (see send-weekly-digest-push,
+  // send-midweek-nudge-push, send-activation-nudge-push). React to it once,
+  // then clear it so re-focusing this screen later doesn't repeat the action.
+  useEffect(() => {
+    const action = route.params?.action;
+    if (!action) return;
+
+    if (action === "openStats") {
+      setView("stats");
+    } else if (action === "openLogDialog") {
+      openLogDialog();
+    }
+
+    navigation.setParams({ action: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.action]);
 
   if (checkingPartner) {
     return (
