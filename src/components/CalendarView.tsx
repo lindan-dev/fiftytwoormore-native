@@ -13,7 +13,6 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Dimensions,
   Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -68,7 +67,16 @@ interface CalendarViewProps {
   ) => void;
 }
 
-const CELL_SIZE = Math.floor((Dimensions.get("window").width - spacing.lg * 2 - spacing.xs * 6) / 7);
+const COLUMNS = 7;
+const CELL_WIDTH_PERCENT = `${100 / COLUMNS}%`;
+
+function chunkDays<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
 
 export default function CalendarView({ activities, currentUserId, onDelete, onUpdate }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -278,61 +286,68 @@ export default function CalendarView({ activities, currentUserId, onDelete, onUp
         {/* Weekday headers */}
         <View style={styles.weekRow}>
           {weekdayLabels.map((label, i) => (
-            <View key={i} style={[styles.cell, { width: CELL_SIZE }]}>
+            <View key={i} style={styles.cell}>
               <Text style={styles.weekdayLabel}>{label}</Text>
             </View>
           ))}
         </View>
 
-        {/* Day grid */}
-        <View style={styles.grid}>
-          {calendarDays.map((day, index) => {
-            const dayActivities = getDayActivities(day);
-            const hasActivities = dayActivities.length > 0;
-            const activityCount = dayActivities.length;
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isCurrentDay = isToday(day);
-            const lastEmoji = hasActivities ? dayActivities[dayActivities.length - 1].emoji : null;
-            const specialEvent = getSpecialEvent(day);
-            const isClickable = hasActivities || specialEvent.isBirthday || specialEvent.isAnniversary;
+        {/* Day grid - chunked into weeks of 7 with percentage-width cells.
+            An earlier version computed a fixed pixel cell size from screen
+            width and let flexWrap wrap automatically; a slightly-too-large
+            computed size made flexWrap fit only 6 per row instead of 7,
+            shifting every following day left by one column (visible as a
+            permanently empty Sunday column). Percentage widths inside
+            explicit week rows make 7-per-row exact by construction. */}
+        {chunkDays(calendarDays, COLUMNS).map((week, weekIndex) => (
+          <View key={weekIndex} style={styles.weekRow}>
+            {week.map((day, index) => {
+              const dayActivities = getDayActivities(day);
+              const hasActivities = dayActivities.length > 0;
+              const activityCount = dayActivities.length;
+              const isCurrentMonth = isSameMonth(day, currentMonth);
+              const isCurrentDay = isToday(day);
+              const lastEmoji = hasActivities ? dayActivities[dayActivities.length - 1].emoji : null;
+              const specialEvent = getSpecialEvent(day);
+              const isClickable = hasActivities || specialEvent.isBirthday || specialEvent.isAnniversary;
 
-            return (
-              <Pressable
-                key={index}
-                onPress={() => handleDayPress(day)}
-                disabled={!isCurrentMonth || !isClickable}
-                style={[
-                  styles.dayCell,
-                  { width: CELL_SIZE, height: CELL_SIZE },
-                  !isCurrentMonth && styles.dayCellFaded,
-                  isCurrentDay && styles.dayCellToday,
-                ]}
-              >
-                {specialEvent.isAnniversary && <View style={styles.anniversaryRing} />}
-                {specialEvent.isBirthday && (
-                  <View style={[styles.birthdayRing, specialEvent.isAnniversary && styles.birthdayRingInset]} />
-                )}
+              return (
+                <Pressable
+                  key={index}
+                  onPress={() => handleDayPress(day)}
+                  disabled={!isCurrentMonth || !isClickable}
+                  style={[
+                    styles.dayCell,
+                    !isCurrentMonth && styles.dayCellFaded,
+                    isCurrentDay && styles.dayCellToday,
+                  ]}
+                >
+                  {specialEvent.isAnniversary && <View style={styles.anniversaryRing} />}
+                  {specialEvent.isBirthday && (
+                    <View style={[styles.birthdayRing, specialEvent.isAnniversary && styles.birthdayRingInset]} />
+                  )}
 
-                {lastEmoji ? (
-                  <View style={styles.dayEmojiWrap}>
-                    <Text style={styles.dayEmoji}>{lastEmoji}</Text>
-                    {activityCount > 1 && (
-                      <View style={styles.dotsRow}>
-                        {Array.from({ length: Math.min(activityCount, 5) }).map((_, i) => (
-                          <View key={i} style={styles.dot} />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  <Text style={[styles.dayNumber, !isCurrentMonth && styles.dayNumberFaded]}>
-                    {format(day, "d")}
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+                  {lastEmoji ? (
+                    <View style={styles.dayEmojiWrap}>
+                      <Text style={styles.dayEmoji}>{lastEmoji}</Text>
+                      {activityCount > 1 && (
+                        <View style={styles.dotsRow}>
+                          {Array.from({ length: Math.min(activityCount, 5) }).map((_, i) => (
+                            <View key={i} style={styles.dot} />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={[styles.dayNumber, !isCurrentMonth && styles.dayNumberFaded]}>
+                      {format(day, "d")}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
 
       <OnThisDay activities={activities} userId={currentUserId} />
@@ -535,6 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   cell: {
+    width: CELL_WIDTH_PERCENT,
     alignItems: "center",
   },
   weekdayLabel: {
@@ -542,12 +558,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.mutedForeground,
   },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
   dayCell: {
+    width: CELL_WIDTH_PERCENT,
+    aspectRatio: 1,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
