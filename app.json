@@ -3,6 +3,7 @@
     "name": "fiftytwoormore",
     "slug": "fiftytwoormore",
     "version": "1.0.0",
+    "scheme": "fiftytwoormore",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

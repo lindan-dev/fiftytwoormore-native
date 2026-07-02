@@ -22,9 +22,11 @@ import {
   Modal,
   RefreshControl,
   Linking,
+  Share,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as ExpoLinking from "expo-linking";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import * as Application from "expo-application";
@@ -71,6 +73,14 @@ interface Activity {
   location_lng?: number | null;
 }
 
+function formatElapsed(isoDate: string): string {
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  const hours = Math.floor(diffMs / 3600000);
+  if (hours < 1) return "less than an hour";
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 function getCohortKeyFromAnniversary(anniversary: string): string {
   const anniversaryDate = new Date(anniversary);
   const yearsTogether = (Date.now() - anniversaryDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
@@ -104,6 +114,7 @@ export default function HomeScreen() {
   const [cohortData, setCohortData] = useState<any>(null);
 
   const [myInvitationCode, setMyInvitationCode] = useState<string | null>(null);
+  const [invitationCreatedAt, setInvitationCreatedAt] = useState<string | null>(null);
   const [enterCode, setEnterCode] = useState("");
   const [sendingInvitation, setSendingInvitation] = useState(false);
 
@@ -136,7 +147,10 @@ export default function HomeScreen() {
       .eq("sender_id", uid)
       .eq("status", "pending")
       .maybeSingle();
-    if (myInvite) setMyInvitationCode(myInvite.id.substring(0, 8).toUpperCase());
+    if (myInvite) {
+      setMyInvitationCode(myInvite.id.substring(0, 8).toUpperCase());
+      setInvitationCreatedAt(myInvite.created_at);
+    }
   }, []);
 
   const checkPartnerStatus = useCallback(
@@ -215,6 +229,28 @@ export default function HomeScreen() {
     });
   }, [checkPartnerStatus]);
 
+  // Handle an incoming invite link (fiftytwoormore://connect?code=XXXXXXXX),
+  // e.g. tapped from a Messages/WhatsApp share sent by a partner. Prefills
+  // the "enter code" field so the recipient just has to confirm, instead of
+  // typing 8 characters by hand. Covers both cold start (app not yet open)
+  // and the app already running in the background.
+  useEffect(() => {
+    const applyIncomingUrl = (url: string | null) => {
+      if (!url) return;
+      const { hostname, path, queryParams } = ExpoLinking.parse(url);
+      const isConnectLink = hostname === "connect" || path === "connect";
+      const code = queryParams?.code;
+      if (isConnectLink && typeof code === "string") {
+        setEnterCode(code.toUpperCase());
+        track("invitation_link_opened");
+      }
+    };
+
+    ExpoLinking.getInitialURL().then(applyIncomingUrl);
+    const subscription = ExpoLinking.addEventListener("url", (event) => applyIncomingUrl(event.url));
+    return () => subscription.remove();
+  }, [track]);
+
   const onRefresh = async () => {
     if (!userId) return;
     setRefreshing(true);
@@ -233,6 +269,7 @@ export default function HomeScreen() {
         .single();
       if (error) throw error;
       setMyInvitationCode(data.id.substring(0, 8).toUpperCase());
+      setInvitationCreatedAt(data.created_at);
       track("invitation_code_generated");
     } catch (error: any) {
       Alert.alert("Error", error.message);
@@ -244,8 +281,21 @@ export default function HomeScreen() {
   const copyInvitationCode = async () => {
     if (myInvitationCode) {
       await Clipboard.setStringAsync(myInvitationCode);
-      track("invitation_code_shared");
+      track("invitation_code_shared", { method: "copy" });
       Alert.alert("Copied!", "Invitation code copied to clipboard.");
+    }
+  };
+
+  const shareInvitationLink = async () => {
+    if (!myInvitationCode) return;
+    const link = ExpoLinking.createURL("connect", { queryParams: { code: myInvitationCode } });
+    try {
+      await Share.share({
+        message: `Join me on fiftytwoormore so we can start tracking our moments together: ${link}`,
+      });
+      track("invitation_code_shared", { method: "link" });
+    } catch (error) {
+      console.error("Error sharing invitation link:", error);
     }
   };
 
@@ -260,6 +310,7 @@ export default function HomeScreen() {
         body: { code: enterCode },
       });
       if (validateError || !data?.success) {
+        track("invitation_code_entered", { valid: false, reason: data?.error || "invalid_or_expired" });
         Alert.alert("Invalid code", data?.error || "This invitation code doesn't exist or has expired.");
         return;
       }
@@ -503,20 +554,29 @@ export default function HomeScreen() {
 
             <Text style={styles.fieldLabel}>Your Invitation Code</Text>
             {myInvitationCode ? (
-              <View style={styles.codeRow}>
-                <View style={styles.codeBox}>
-                  <Text style={styles.codeText}>{myInvitationCode}</Text>
-                </View>
-                <Pressable style={styles.iconOutlineButton} onPress={copyInvitationCode}>
-                  <Copy size={18} color={colors.foreground} />
+              <>
+                <Pressable style={styles.primaryButton} onPress={shareInvitationLink}>
+                  <Text style={styles.primaryButtonText}>Share invite link</Text>
                 </Pressable>
-              </View>
+                <View style={styles.codeRow}>
+                  <View style={styles.codeBox}>
+                    <Text style={styles.codeText}>{myInvitationCode}</Text>
+                  </View>
+                  <Pressable style={styles.iconOutlineButton} onPress={copyInvitationCode}>
+                    <Copy size={18} color={colors.foreground} />
+                  </Pressable>
+                </View>
+                <Text style={styles.captionText}>
+                  {invitationCreatedAt ? `Sent ${formatElapsed(invitationCreatedAt)} ago. ` : ""}
+                  Tapping the link opens the app with your code already filled in - or share just the code
+                  above if you'd rather.
+                </Text>
+              </>
             ) : (
               <Pressable style={styles.primaryButton} onPress={generateInvitationCode} disabled={sendingInvitation}>
                 {sendingInvitation ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={styles.primaryButtonText}>Generate Code</Text>}
               </Pressable>
             )}
-            {myInvitationCode && <Text style={styles.captionText}>Share this code with your partner via WhatsApp, SMS, or any messaging app</Text>}
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />

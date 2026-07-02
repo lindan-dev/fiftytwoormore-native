@@ -15,6 +15,7 @@ export type EventName =
   | 'invitation_code_generated'
   | 'invitation_code_shared'
   | 'invitation_code_entered'
+  | 'invitation_link_opened'
   | 'couple_formed'
   // Activation & engagement
   | 'first_activity_logged'
