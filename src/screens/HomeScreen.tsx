@@ -595,9 +595,6 @@ export default function HomeScreen() {
         )}
         {view === "admin" && isSuperuser && (
           <View style={{ gap: spacing.sm }}>
-            <Text style={styles.adminVersionText}>
-              Version {Application.nativeApplicationVersion} (build {Application.nativeBuildVersion})
-            </Text>
             <View style={styles.adminTabRow}>
               <Pressable style={[styles.adminTab, adminTab === "funnel" && styles.adminTabActive]} onPress={() => setAdminTab("funnel")}>
                 <TrendingUp size={14} color={adminTab === "funnel" ? colors.primary : colors.mutedForeground} />
@@ -637,6 +634,9 @@ export default function HomeScreen() {
           <Pressable onPress={() => Linking.openURL("mailto:fiftytwoormore@lindaninc.com")}>
             <Text style={[styles.footerText, styles.footerLink]}>Contact: fiftytwoormore@lindaninc.com</Text>
           </Pressable>
+          <Text style={styles.footerText}>
+            Version {Application.nativeApplicationVersion} ({Application.nativeBuildVersion})
+          </Text>
         </View>
       </ScrollView>
 
@@ -947,10 +947,6 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: colors.primaryForeground,
     fontWeight: "600",
-  },
-  adminVersionText: {
-    fontSize: 11,
-    color: colors.mutedForeground,
   },
   adminTabRow: {
     flexDirection: "row",
