@@ -27,6 +27,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
+import * as Application from "expo-application";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Heart,
@@ -594,6 +595,9 @@ export default function HomeScreen() {
         )}
         {view === "admin" && isSuperuser && (
           <View style={{ gap: spacing.sm }}>
+            <Text style={styles.adminVersionText}>
+              Version {Application.nativeApplicationVersion} (build {Application.nativeBuildVersion})
+            </Text>
             <View style={styles.adminTabRow}>
               <Pressable style={[styles.adminTab, adminTab === "funnel" && styles.adminTabActive]} onPress={() => setAdminTab("funnel")}>
                 <TrendingUp size={14} color={adminTab === "funnel" ? colors.primary : colors.mutedForeground} />
@@ -943,6 +947,10 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: colors.primaryForeground,
     fontWeight: "600",
+  },
+  adminVersionText: {
+    fontSize: 11,
+    color: colors.mutedForeground,
   },
   adminTabRow: {
     flexDirection: "row",

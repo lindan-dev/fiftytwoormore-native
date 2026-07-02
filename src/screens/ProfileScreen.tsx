@@ -18,6 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { Session } from "@supabase/supabase-js";
 import { ArrowLeft, User, Heart, Trash2, UserX, Users } from "lucide-react-native";
+import * as Application from "expo-application";
 import { supabase } from "../integrations/supabase/client";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -436,6 +437,10 @@ export default function ProfileScreen() {
             )}
           </Pressable>
         </View>
+
+        <Text style={styles.versionText}>
+          Version {Application.nativeApplicationVersion} (build {Application.nativeBuildVersion})
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -590,5 +595,12 @@ const styles = StyleSheet.create({
   adminButtonText: {
     color: colors.foreground,
     fontWeight: "600",
+  },
+  versionText: {
+    textAlign: "center",
+    fontSize: 11,
+    color: colors.mutedForeground,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
 });
