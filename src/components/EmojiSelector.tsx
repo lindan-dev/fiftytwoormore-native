@@ -2,12 +2,13 @@
 // shadcn Card/Button -> View/Pressable + StyleSheet. Grid uses flexWrap
 // instead of CSS grid (RN has no grid layout).
 //
-// Fixed compact height with its own internal ScrollView: with ~79 emoji
+// Fixed 5x3 grid with its own internal ScrollView: with ~79 emoji
 // presets, letting this grow to full height forces the whole create/edit
 // dialog to scroll just to reach the save button. Containing the scroll
 // here keeps the rest of the form (date, notes, location, save) reachable
-// without scrolling.
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+// without scrolling. Button size is computed from screen width so exactly
+// 5 columns fit on any device.
+import { View, Text, Pressable, ScrollView, Dimensions, StyleSheet } from "react-native";
 import { getEmojiPresets } from "../lib/emojiLabels";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -15,6 +16,17 @@ interface EmojiSelectorProps {
   onSelect: (emoji: string) => void;
   selectedEmoji?: string;
 }
+
+const COLUMNS = 5;
+const VISIBLE_ROWS = 3;
+// Screen width minus modal padding (spacing.lg * 2), card padding
+// (spacing.sm * 2), and gaps between columns.
+const CARD_HORIZONTAL_PADDING = spacing.sm * 2;
+const MODAL_HORIZONTAL_PADDING = spacing.lg * 2;
+const GAPS = (COLUMNS - 1) * spacing.xs;
+const AVAILABLE_WIDTH = Dimensions.get("window").width - MODAL_HORIZONTAL_PADDING - CARD_HORIZONTAL_PADDING - GAPS;
+const EMOJI_SIZE = Math.floor(AVAILABLE_WIDTH / COLUMNS);
+const ROW_HEIGHT = EMOJI_SIZE + spacing.xs;
 
 export default function EmojiSelector({ onSelect, selectedEmoji }: EmojiSelectorProps) {
   const emojiPresets = getEmojiPresets();
@@ -41,10 +53,6 @@ export default function EmojiSelector({ onSelect, selectedEmoji }: EmojiSelector
     </View>
   );
 }
-
-const EMOJI_SIZE = 32;
-const VISIBLE_ROWS = 3;
-const ROW_HEIGHT = EMOJI_SIZE + spacing.xs;
 
 const styles = StyleSheet.create({
   card: {
@@ -76,6 +84,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   emojiText: {
-    fontSize: 17,
+    fontSize: Math.floor(EMOJI_SIZE * 0.5),
   },
 });
