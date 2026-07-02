@@ -22,12 +22,7 @@
     },
     "android": {
       "package": "com.lindan.fiftytwoormore",
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "plugins": [
       [
@@ -39,9 +34,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "d38f8b0e-b843-4e89-b0bf-277b4fdc4a4e"
+        "projectId": "REPLACE_WITH_NEW_EAS_PROJECT_ID"
       }
-    },
-    "owner": "daniel.solving"
+    }
   }
 }

@@ -413,13 +413,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Admin (superuser only) */}
-        {isSuperuser && (
-          <Pressable style={styles.adminButton} onPress={() => navigation.navigate("Admin")}>
-            <Text style={styles.adminButtonText}>Open Admin Dashboard</Text>
-          </Pressable>
-        )}
-
         {/* Delete account */}
         <View style={[styles.card, styles.destructiveCard]}>
           <View style={styles.cardHeaderRow}>

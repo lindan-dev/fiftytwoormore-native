@@ -1,8 +1,11 @@
+// Matches the real structure of src/pages/Index.tsx: there is no bottom
+// tab bar in the web app. It's a single page (HomeScreen here) that
+// internally toggles between Log/Stats/Admin content, with Profile
+// reached via a header icon (pushed as a stack screen) rather than a tab.
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../integrations/supabase/client";
@@ -11,19 +14,14 @@ import { colors } from "../theme/colors";
 import AuthScreen from "../screens/AuthScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import HomeScreen from "../screens/HomeScreen";
-import CalendarScreen from "../screens/CalendarScreen";
-import StatsScreen from "../screens/StatsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
-import InvitationScreen from "../screens/InvitationScreen";
 import YearInReviewScreen from "../screens/YearInReviewScreen";
-import AdminScreen from "../screens/AdminScreen";
 
 const ONBOARDING_KEY = "fiftytwoormore:hasSeenOnboarding";
 
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
-const MainTabs = createBottomTabNavigator();
 
 function AuthNavigator() {
   return (
@@ -34,23 +32,15 @@ function AuthNavigator() {
   );
 }
 
-function MainTabNavigator() {
-  return (
-    <MainTabs.Navigator screenOptions={{ headerShown: false }}>
-      <MainTabs.Screen name="Home" component={HomeScreen} />
-      <MainTabs.Screen name="Calendar" component={CalendarScreen} />
-      <MainTabs.Screen name="Stats" component={StatsScreen} />
-      <MainTabs.Screen name="Profile" component={ProfileScreen} />
-    </MainTabs.Navigator>
-  );
-}
-
-function AppNavigator() {
+function AppNavigator({ onOnboardingComplete }: { onOnboardingComplete: () => void }) {
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      <RootStack.Screen name="MainTabs" component={MainTabNavigator} />
+      <RootStack.Screen name="Home" component={HomeScreen} />
+      <RootStack.Screen name="Profile" component={ProfileScreen} />
       <RootStack.Screen name="YearInReview" component={YearInReviewScreen} />
-      <RootStack.Screen name="Admin" component={AdminScreen} />
+      <RootStack.Screen name="Onboarding">
+        {() => <OnboardingScreen onComplete={onOnboardingComplete} />}
+      </RootStack.Screen>
     </RootStack.Navigator>
   );
 }
@@ -59,16 +49,6 @@ export default function RootNavigator() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
-  const [hasPartner, setHasPartner] = useState<boolean | null>(null);
-
-  const checkPartner = async (uid: string) => {
-    const { data } = await supabase
-      .from("couples")
-      .select("id")
-      .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
-      .maybeSingle();
-    setHasPartner(!!data);
-  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -76,7 +56,6 @@ export default function RootNavigator() {
       if (data.session) {
         const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
         setHasSeenOnboarding(!!seen);
-        await checkPartner(data.session.user.id);
       }
       setLoading(false);
     });
@@ -86,10 +65,8 @@ export default function RootNavigator() {
       if (newSession) {
         const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
         setHasSeenOnboarding(!!seen);
-        await checkPartner(newSession.user.id);
       } else {
         setHasSeenOnboarding(null);
-        setHasPartner(null);
       }
     });
 
@@ -115,18 +92,8 @@ export default function RootNavigator() {
             setHasSeenOnboarding(true);
           }}
         />
-      ) : hasPartner === false ? (
-        <InvitationScreen
-          userEmail={session.user.email ?? ""}
-          userId={session.user.id}
-          onConnected={() => setHasPartner(true)}
-        />
-      ) : hasPartner === null ? (
-        <View style={styles.loading}>
-          <ActivityIndicator />
-        </View>
       ) : (
-        <AppNavigator />
+        <AppNavigator onOnboardingComplete={() => {}} />
       )}
     </NavigationContainer>
   );
