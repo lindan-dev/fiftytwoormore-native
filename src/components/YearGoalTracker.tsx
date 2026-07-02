@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: colors.muted,
-    overflow: "visible",
+    overflow: "hidden",
     position: "relative",
   },
   progressFill: {

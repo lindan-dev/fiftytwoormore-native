@@ -1,39 +1,45 @@
 // Ported 1:1 from fiftytwoormore's web app (src/index.css light theme).
 // Used with StyleSheet.create() instead of Tailwind classNames.
+//
+// IMPORTANT: values are hex, not hsl(...) strings. Many components build
+// translucent variants by string-concatenating a hex alpha suffix, e.g.
+// `colors.primary + "33"`. That only produces a valid color when the base
+// is hex (#RRGGBB + AA = #RRGGBBAA) - concatenating onto an hsl(...)
+// string produces an invalid, silently-broken color. Keep these as hex.
 export const colors = {
-  background: "hsl(30, 35%, 92%)",
-  foreground: "hsl(10, 15%, 15%)",
+  background: "#F2EBE3",
+  foreground: "#2C2221",
 
-  card: "hsl(0, 0%, 100%)",
-  cardForeground: "hsl(10, 15%, 15%)",
+  card: "#FFFFFF",
+  cardForeground: "#2C2221",
 
-  popover: "hsl(0, 0%, 100%)",
-  popoverForeground: "hsl(10, 15%, 15%)",
+  popover: "#FFFFFF",
+  popoverForeground: "#2C2221",
 
-  primary: "hsl(10, 80%, 65%)",
-  primaryForeground: "hsl(0, 0%, 100%)",
+  primary: "#ED765E",
+  primaryForeground: "#FFFFFF",
 
-  secondary: "hsl(10, 60%, 75%)",
-  secondaryForeground: "hsl(0, 0%, 100%)",
+  secondary: "#E6A699",
+  secondaryForeground: "#FFFFFF",
 
-  muted: "hsl(30, 25%, 88%)",
-  mutedForeground: "hsl(10, 10%, 45%)",
+  muted: "#E8E0D9",
+  mutedForeground: "#7E6B67",
 
-  accent: "hsl(10, 75%, 70%)",
-  accentForeground: "hsl(0, 0%, 100%)",
+  accent: "#EC8C79",
+  accentForeground: "#FFFFFF",
 
-  destructive: "hsl(0, 84.2%, 60.2%)",
-  destructiveForeground: "hsl(0, 0%, 100%)",
+  destructive: "#EF4444",
+  destructiveForeground: "#FFFFFF",
 
-  border: "hsl(30, 20%, 85%)",
-  input: "hsl(30, 15%, 90%)",
-  ring: "hsl(10, 80%, 65%)",
+  border: "#E0D9D1",
+  input: "#E9E6E2",
+  ring: "#ED765E",
 
-  chart1: "hsl(10, 80%, 65%)",
-  chart2: "hsl(280, 65%, 60%)",
-  chart3: "hsl(340, 75%, 65%)",
-  chart4: "hsl(45, 90%, 60%)",
-  chart5: "hsl(160, 60%, 50%)",
+  chart1: "#ED765E",
+  chart2: "#AF57DB",
+  chart3: "#E9638F",
+  chart4: "#F5C73D",
+  chart5: "#33CC99",
 } as const;
 
 export const radius = {
