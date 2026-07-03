@@ -4,7 +4,7 @@
 //  - shadcn Card/Input/Button -> RN View/TextInput/Pressable + StyleSheet
 //  - toast() -> Alert.alert (swap for a native toast lib later if desired)
 //  - "forgot password" redirect uses a deep link instead of window.location
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
-import { Heart } from "lucide-react-native";
+import { Heart, Mail } from "lucide-react-native";
 import { z } from "zod";
 import * as Linking from "expo-linking";
 import { supabase } from "../integrations/supabase/client";
@@ -28,13 +28,46 @@ const authSchema = z.object({
   name: z.string().trim().min(1, "Namn krävs").max(100).optional(),
 });
 
-export default function AuthScreen() {
+interface AuthScreenProps {
+  defaultToSignUp?: boolean;
+}
+
+export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(defaultToSignUp);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // Handles the warm-start case: the app was already open (showing this
+  // screen in login mode) when an invite link arrived, so RootNavigator's
+  // `pendingInviteCode` - and therefore this `defaultToSignUp` prop -
+  // only becomes true a moment AFTER this screen already mounted.
+  // `useState`'s initial value is a one-time thing, it doesn't react to
+  // later prop changes, so without this effect the screen would stay
+  // stuck in login mode even though a valid invite code just arrived.
+  // One-directional on purpose: only forces login -> signup, never the
+  // reverse, so it doesn't fight a manual toggle the person made.
+  useEffect(() => {
+    if (defaultToSignUp) setIsSignUp(true);
+  }, [defaultToSignUp]);
+
+  const handleResendConfirmation = async () => {
+    if (!awaitingConfirmation) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email: awaitingConfirmation });
+      if (error) throw error;
+      Alert.alert("Sent!", "Check your inbox for a new confirmation email.");
+    } catch (error: any) {
+      Alert.alert("Error", error.message ?? "Could not resend the email");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleAuth = async () => {
     setLoading(true);
@@ -71,7 +104,10 @@ export default function AuthScreen() {
         const { error } = await supabase.auth.signUp({
           email: result.data.email,
           password: result.data.password,
-          options: { data: { name: result.data.name } },
+          options: {
+            data: { name: result.data.name },
+            emailRedirectTo: Linking.createURL("email-confirmed"),
+          },
         });
         if (error) throw error;
 
@@ -83,8 +119,7 @@ export default function AuthScreen() {
           console.error("Error sending welcome email:", emailError);
         }
 
-        Alert.alert("Konto skapat!", "Du kan nu logga in med dina uppgifter.");
-        setIsSignUp(false);
+        setAwaitingConfirmation(result.data.email);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: result.data.email,
@@ -112,6 +147,37 @@ export default function AuthScreen() {
           <Text style={styles.title}>fiftytwoormore</Text>
         </View>
 
+        {awaitingConfirmation ? (
+          <View style={styles.card}>
+            <View style={styles.confirmIconWrap}>
+              <Mail size={28} color="#fff" />
+            </View>
+            <Text style={[styles.cardTitle, styles.centerText]}>Check your email</Text>
+            <Text style={[styles.cardSubtitle, styles.centerText]}>
+              We've sent a confirmation link to{"\n"}
+              <Text style={styles.emailHighlight}>{awaitingConfirmation}</Text>
+              {"\n\n"}Tap the link to activate your account - you'll be signed in automatically here in the app.
+            </Text>
+
+            <Pressable onPress={handleResendConfirmation} disabled={resending} style={styles.primaryButton}>
+              {resending ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <Text style={styles.primaryButtonText}>Resend email</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setAwaitingConfirmation(null);
+                setIsSignUp(false);
+                setPassword("");
+              }}
+              style={styles.linkButton}
+            >
+              <Text style={styles.linkText}>Back to login</Text>
+            </Pressable>
+          </View>
+        ) : (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
             {isForgotPassword ? "Återställ lösenord" : isSignUp ? "Skapa konto" : "Logga in"}
@@ -182,6 +248,7 @@ export default function AuthScreen() {
             </Text>
           </Pressable>
         </View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -227,6 +294,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.mutedForeground,
     marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  confirmIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: spacing.md,
+  },
+  emailHighlight: {
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  centerText: {
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,
