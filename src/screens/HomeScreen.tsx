@@ -459,8 +459,11 @@ export default function HomeScreen() {
     else if (userId) fetchActivities(userId);
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    Alert.alert("Log out?", "You can always log back in.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Log out", style: "destructive", onPress: () => supabase.auth.signOut() },
+    ]);
   };
 
   const openLogDialog = () => {
