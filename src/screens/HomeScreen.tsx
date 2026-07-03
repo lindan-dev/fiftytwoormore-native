@@ -26,6 +26,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ExpoLinking from "expo-linking";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
@@ -47,7 +48,9 @@ import {
   Bell,
 } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
+import { invokeFunction } from "../lib/supabaseFunctions";
 import { registerForPushNotificationsAsync } from "../lib/pushNotifications";
+import { PENDING_INVITE_CODE_KEY, extractInviteCode } from "../lib/storageKeys";
 import { useAnalytics } from "../hooks/useAnalytics";
 import EmojiSelector from "../components/EmojiSelector";
 import LocationPicker, { LocationValue } from "../components/LocationPicker";
@@ -116,6 +119,8 @@ export default function HomeScreen() {
   const [myInvitationCode, setMyInvitationCode] = useState<string | null>(null);
   const [invitationCreatedAt, setInvitationCreatedAt] = useState<string | null>(null);
   const [enterCode, setEnterCode] = useState("");
+  const [inviteSenderName, setInviteSenderName] = useState<string | null>(null);
+  const [checkingInvitePreview, setCheckingInvitePreview] = useState(false);
   const [sendingInvitation, setSendingInvitation] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -229,6 +234,27 @@ export default function HomeScreen() {
     });
   }, [checkPartnerStatus]);
 
+  // Looks up who sent an invite code, purely for display ("X invited
+  // you!") before the user commits to connecting. Silent on failure
+  // (invalid/expired code, or not logged in yet) - the UI just falls
+  // back to the generic connect card in that case, no error shown here
+  // since this is a preview, not a submission.
+  const previewInviteCode = useCallback(async (code: string) => {
+    setCheckingInvitePreview(true);
+    try {
+      const { data, error } = await invokeFunction("validate-invitation-code", {
+        body: { code },
+      });
+      if (!error && data?.success) {
+        setInviteSenderName(data.invitation?.sender_name || "Your partner");
+      }
+    } catch {
+      // silent - falls back to the generic connect UI
+    } finally {
+      setCheckingInvitePreview(false);
+    }
+  }, []);
+
   // Handle an incoming invite link (fiftytwoormore://connect?code=XXXXXXXX),
   // e.g. tapped from a Messages/WhatsApp share sent by a partner. Prefills
   // the "enter code" field so the recipient just has to confirm, instead of
@@ -238,10 +264,11 @@ export default function HomeScreen() {
     const applyIncomingUrl = (url: string | null) => {
       if (!url) return;
       const { hostname, path, queryParams } = ExpoLinking.parse(url);
-      const isConnectLink = hostname === "connect" || path === "connect";
-      const code = queryParams?.code;
-      if (isConnectLink && typeof code === "string") {
+      const isConnectLink = hostname === "connect" || path === "connect" || url.includes("connect");
+      const code = (typeof queryParams?.code === "string" ? queryParams.code : null) ?? extractInviteCode(url);
+      if (isConnectLink && code) {
         setEnterCode(code.toUpperCase());
+        previewInviteCode(code);
         track("invitation_link_opened");
       }
     };
@@ -249,7 +276,25 @@ export default function HomeScreen() {
     ExpoLinking.getInitialURL().then(applyIncomingUrl);
     const subscription = ExpoLinking.addEventListener("url", (event) => applyIncomingUrl(event.url));
     return () => subscription.remove();
-  }, [track]);
+  }, [track, previewInviteCode]);
+
+  // Fallback for the same invite code, read from AsyncStorage instead of
+  // the live URL. Needed because a brand-new recipient's journey is
+  // invite link -> sign up -> check email -> tap confirmation link, and
+  // that last tap relaunches the app via a *different* deep link
+  // ("email-confirmed"), which would otherwise lose the original code
+  // entirely by the time they land here. RootNavigator persists it when
+  // the connect link first arrives; this consumes and clears it once.
+  useEffect(() => {
+    if (enterCode) return;
+    AsyncStorage.getItem(PENDING_INVITE_CODE_KEY).then((code) => {
+      if (code) {
+        setEnterCode(code.toUpperCase());
+        previewInviteCode(code);
+        AsyncStorage.removeItem(PENDING_INVITE_CODE_KEY);
+      }
+    });
+  }, [enterCode, previewInviteCode]);
 
   const onRefresh = async () => {
     if (!userId) return;
@@ -306,7 +351,7 @@ export default function HomeScreen() {
     }
     setSendingInvitation(true);
     try {
-      const { data, error: validateError } = await supabase.functions.invoke("validate-invitation-code", {
+      const { data, error: validateError } = await invokeFunction("validate-invitation-code", {
         body: { code: enterCode },
       });
       if (validateError || !data?.success) {
@@ -331,7 +376,7 @@ export default function HomeScreen() {
       // the real (code-based) connect flow - see BACKLOG.md Ticket 2.
       // Best-effort: a failure here shouldn't block the connection itself.
       try {
-        await supabase.functions.invoke("notify-partner-connected-push", {
+        await invokeFunction("notify-partner-connected-push", {
           body: { partner_id: matchingInvite.sender_id },
         });
       } catch (pushError) {
@@ -540,6 +585,39 @@ export default function HomeScreen() {
               </>
             )}
           </>
+        ) : inviteSenderName ? (
+          <View style={styles.card}>
+            <View style={styles.partnerRow}>
+              <View style={styles.avatarLarge}>
+                <Heart size={18} color="#fff" fill="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{inviteSenderName} invited you! 💌</Text>
+                <Text style={styles.mutedSmall}>Confirm you want to connect on fiftytwoormore</Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={[styles.primaryButton, sendingInvitation && styles.primaryButtonDisabled]}
+              onPress={handleConnectWithCode}
+              disabled={sendingInvitation}
+            >
+              {sendingInvitation ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <Text style={styles.primaryButtonText}>Connect with {inviteSenderName}</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setInviteSenderName(null);
+                setEnterCode("");
+              }}
+              style={styles.linkButton}
+            >
+              <Text style={styles.linkText}>Not {inviteSenderName}? Use a different code</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={styles.card}>
             <View style={styles.partnerRow}>
@@ -604,6 +682,7 @@ export default function HomeScreen() {
                 {sendingInvitation ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={styles.primaryButtonText}>Connect</Text>}
               </Pressable>
             </View>
+            {checkingInvitePreview && <ActivityIndicator style={{ marginTop: spacing.sm }} />}
           </View>
         )}
 
@@ -1099,6 +1178,14 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: colors.primaryForeground,
     fontWeight: "600",
+  },
+  linkButton: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+  },
+  linkText: {
+    fontSize: 13,
+    color: colors.mutedForeground,
   },
   cancelButton: {
     alignItems: "center",

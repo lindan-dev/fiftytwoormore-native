@@ -12,6 +12,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { supabase } from "../integrations/supabase/client";
+import { invokeFunction } from "./supabaseFunctions";
 import { navigationRef } from "./navigationRef";
 
 // Foreground behavior: show an alert + play sound even while the app is
@@ -64,7 +65,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     // hands), reassigning it requires deleting a row this user doesn't
     // own - something RLS correctly blocks from the client, but which a
     // service-role edge function can do safely.
-    const { error } = await supabase.functions.invoke("register-push-token", {
+    const { error } = await invokeFunction("register-push-token", {
       body: { token, device_type: Platform.OS },
     });
 

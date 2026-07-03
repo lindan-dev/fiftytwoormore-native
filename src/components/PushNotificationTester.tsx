@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, StyleSheet } from "react-native";
 import { supabase } from "../integrations/supabase/client";
+import { invokeFunction } from "../lib/supabaseFunctions";
 import { colors, radius, spacing } from "../theme/colors";
 
 export default function PushNotificationTester() {
@@ -20,7 +21,7 @@ export default function PushNotificationTester() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      const { data, error } = await supabase.functions.invoke("send-push-notification", {
+      const { data, error } = await invokeFunction("send-push-notification", {
         body: { user_ids: [user.id], title, body },
       });
 
@@ -54,7 +55,7 @@ export default function PushNotificationTester() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
+      const { data, error } = await invokeFunction(functionName, {
         body: { user_ids: [user.id], ...extraBody },
       });
       if (error) throw error;

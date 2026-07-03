@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { RefreshCw, Mail, CheckCircle, MousePointer, AlertTriangle, Eye, Send } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
+import { invokeFunction } from "../lib/supabaseFunctions";
 import { colors, radius, spacing } from "../theme/colors";
 
 interface Summary {
@@ -145,7 +146,7 @@ export default function EmailPerformance() {
       setSendingEmail(true);
       const functionName = sendEmailType === "weekly-digest" ? "send-digest-manual" : "send-midweek-nudge-manual";
       const body = selectedCoupleId !== "all" ? { couple_id: selectedCoupleId } : undefined;
-      const { data, error } = await supabase.functions.invoke(functionName, { body });
+      const { data, error } = await invokeFunction(functionName, { body });
       if (error) throw error;
 
       const emailLabel = sendEmailType === "weekly-digest" ? "Weekly Digest" : "Mid-week Nudge";

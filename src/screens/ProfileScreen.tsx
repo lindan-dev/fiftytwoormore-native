@@ -19,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { Session } from "@supabase/supabase-js";
 import { ArrowLeft, User, Heart, Trash2, UserX, Users } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
+import { invokeFunction } from "../lib/supabaseFunctions";
 import { colors, radius, spacing } from "../theme/colors";
 
 interface Profile {
@@ -226,7 +227,7 @@ export default function ProfileScreen() {
       // version left the login credential intact, so "permanently
       // deleted" wasn't accurate and re-logging in would hit a missing
       // profile row.
-      const { error } = await supabase.functions.invoke("delete-account");
+      const { error } = await invokeFunction("delete-account");
       if (error) throw error;
 
       Alert.alert("Account Deleted", "All your data has been permanently deleted");
