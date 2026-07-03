@@ -689,7 +689,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {!hasPartner && (
+        {!hasPartner && !inviteSenderName && (
           <View style={styles.hintCard}>
             <Text style={styles.cardTitle}>Waiting for partner, but you can start already.</Text>
             <Text style={styles.mutedSmall}>
