@@ -3,7 +3,7 @@
 // internally toggles between Log/Stats/Admin content, with Profile
 // reached via a header icon (pushed as a stack screen) rather than a tab.
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,6 +12,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
 import { navigationRef } from "../lib/navigationRef";
+import { PENDING_INVITE_CODE_KEY, extractInviteCode } from "../lib/storageKeys";
 
 import AuthScreen from "../screens/AuthScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
@@ -25,10 +26,12 @@ const ONBOARDING_KEY = "fiftytwoormore:hasSeenOnboarding";
 const AuthStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
-function AuthNavigator() {
+function AuthNavigator({ defaultToSignUp }: { defaultToSignUp: boolean }) {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Auth" component={AuthScreen} />
+      <AuthStack.Screen name="Auth">
+        {() => <AuthScreen defaultToSignUp={defaultToSignUp} />}
+      </AuthStack.Screen>
     </AuthStack.Navigator>
   );
 }
@@ -54,13 +57,13 @@ function AppNavigator() {
 }
 
 /**
- * Extracts Supabase auth tokens from an incoming reset-password deep link.
- * Supabase's recovery redirect appends tokens as a URL fragment
- * (`#access_token=...&refresh_token=...&type=recovery`), not a query
- * string - expo-linking's parse() only reads the query string, so this
- * fragment has to be parsed manually.
+ * Extracts Supabase auth tokens from an incoming deep link (used for both
+ * password-recovery and email-confirmation links). Supabase appends
+ * tokens as a URL fragment (`#access_token=...&refresh_token=...`), not a
+ * query string - expo-linking's parse() only reads the query string, so
+ * this fragment has to be parsed manually.
  */
-function extractRecoveryTokens(url: string): { access_token: string; refresh_token: string } | null {
+function extractAuthTokens(url: string): { access_token: string; refresh_token: string } | null {
   const hashIndex = url.indexOf("#");
   const paramsString = hashIndex >= 0 ? url.slice(hashIndex + 1) : url.split("?")[1];
   if (!paramsString) return null;
@@ -77,16 +80,43 @@ export default function RootNavigator() {
   const [loading, setLoading] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
 
+  const captureConnectLink = async (url: string) => {
+    const { queryParams } = ExpoLinking.parse(url);
+    const code = (typeof queryParams?.code === "string" ? queryParams.code : null) ?? extractInviteCode(url);
+    if (code) {
+      await AsyncStorage.setItem(PENDING_INVITE_CODE_KEY, code);
+      setPendingInviteCode(code);
+    }
+  };
+
+  // Startup sequence runs as one deliberate chain, not parallel effects:
+  // check for a pending/incoming invite code FIRST and wait for it to
+  // fully resolve, THEN check the session, THEN stop showing the loading
+  // spinner. This matters because AuthScreen reads `defaultToSignUp` only
+  // once via useState's initial value - if the session check finished
+  // (and hid the loading screen) before the invite-code check landed,
+  // AuthScreen would already be mounted with defaultToSignUp=false and
+  // would never pick up the code arriving a moment later.
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    (async () => {
+      const storedCode = await AsyncStorage.getItem(PENDING_INVITE_CODE_KEY);
+      if (storedCode) setPendingInviteCode(storedCode);
+
+      const initialUrl = await ExpoLinking.getInitialURL();
+      if (initialUrl?.includes("connect")) {
+        await captureConnectLink(initialUrl);
+      }
+
+      const { data } = await supabase.auth.getSession();
       setSession(data.session);
       if (data.session) {
         const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
         setHasSeenOnboarding(!!seen);
       }
       setLoading(false);
-    });
+    })();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
@@ -104,21 +134,35 @@ export default function RootNavigator() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Catches the "fiftytwoormore://reset-password#access_token=..." link
-  // from the password reset email (both cold start and while running),
-  // exchanges the tokens for a session, and switches into recovery mode
-  // regardless of whatever screen the app happened to be showing.
+  // Warm-start case: app already running, a new link arrives via event
+  // rather than getInitialURL(). Handles reset-password, email-confirmed,
+  // and connect links the same way as the startup chain above.
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
-      if (!url || !url.includes("reset-password")) return;
-      const tokens = extractRecoveryTokens(url);
+      if (!url) return;
+
+      if (url.includes("connect")) {
+        await captureConnectLink(url);
+        return;
+      }
+
+      const isPasswordReset = url.includes("reset-password");
+      const isEmailConfirmation = url.includes("email-confirmed");
+      if (!isPasswordReset && !isEmailConfirmation) return;
+
+      const tokens = extractAuthTokens(url);
       if (!tokens) return;
 
       const { error } = await supabase.auth.setSession(tokens);
-      if (!error) setIsPasswordRecovery(true);
+      if (error) return;
+
+      if (isPasswordReset) {
+        setIsPasswordRecovery(true);
+      } else {
+        Alert.alert("Email confirmed! 🎉", "Time to invite your partner.");
+      }
     };
 
-    ExpoLinking.getInitialURL().then(handleUrl);
     const subscription = ExpoLinking.addEventListener("url", (event) => handleUrl(event.url));
     return () => subscription.remove();
   }, []);
@@ -136,7 +180,7 @@ export default function RootNavigator() {
       {isPasswordRecovery ? (
         <ResetPasswordScreen onDone={() => setIsPasswordRecovery(false)} />
       ) : !session ? (
-        <AuthNavigator />
+        <AuthNavigator defaultToSignUp={!!pendingInviteCode} />
       ) : !hasSeenOnboarding ? (
         <OnboardingScreen
           onComplete={async () => {

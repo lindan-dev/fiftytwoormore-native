@@ -19,6 +19,7 @@ import {
 import { Heart, Mail } from "lucide-react-native";
 import { z } from "zod";
 import * as Linking from "expo-linking";
+import * as Application from "expo-application";
 import { supabase } from "../integrations/supabase/client";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -145,6 +146,9 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         <View style={styles.logoBlock}>
           <Heart size={40} color={colors.primary} />
           <Text style={styles.title}>fiftytwoormore</Text>
+          <Text style={styles.versionText}>
+            v{Application.nativeApplicationVersion} ({Application.nativeBuildVersion})
+          </Text>
         </View>
 
         {awaitingConfirmation ? (
@@ -267,6 +271,11 @@ const styles = StyleSheet.create({
   logoBlock: {
     alignItems: "center",
     marginBottom: spacing.xxl,
+  },
+  versionText: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginTop: spacing.xs,
   },
   title: {
     fontSize: 24,
