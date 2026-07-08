@@ -25,13 +25,12 @@ import {
   Share,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ExpoLinking from "expo-linking";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import * as Application from "expo-application";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Heart,
   Info,
@@ -46,6 +45,7 @@ import {
   TrendingUp,
   FlaskConical,
   Bell,
+  MapPin,
 } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
 import { invokeFunction } from "../lib/supabaseFunctions";
@@ -53,8 +53,10 @@ import { registerForPushNotificationsAsync } from "../lib/pushNotifications";
 import { PENDING_INVITE_CODE_KEY, extractInviteCode } from "../lib/storageKeys";
 import { useAnalytics } from "../hooks/useAnalytics";
 import EmojiSelector from "../components/EmojiSelector";
+import DateTimeField from "../components/DateTimeField";
 import LocationPicker, { LocationValue } from "../components/LocationPicker";
 import CalendarView from "../components/CalendarView";
+import ActivityMapView from "../components/ActivityMapView";
 import StatsView from "../components/StatsView";
 import YearGoalTracker from "../components/YearGoalTracker";
 import FunnelAnalytics from "../components/FunnelAnalytics";
@@ -94,7 +96,7 @@ function getCohortKeyFromAnniversary(anniversary: string): string {
   return "rel_15+";
 }
 
-type ViewMode = "log" | "stats" | "admin";
+type ViewMode = "log" | "stats" | "map" | "admin";
 type AdminTab = "funnel" | "email" | "users" | "push";
 
 export default function HomeScreen() {
@@ -125,8 +127,6 @@ export default function HomeScreen() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customDateTime, setCustomDateTime] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState("");
   const [selectedNotes, setSelectedNotes] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<LocationValue | null>(null);
@@ -471,17 +471,13 @@ export default function HomeScreen() {
     setCustomDateTime(now);
     setSelectedEmoji("");
     setSelectedNotes("");
-    const latestWithLoc = activities.find((a) => a.location_label);
-    setSelectedLocation(
-      latestWithLoc?.location_label
-        ? {
-            label: latestWithLoc.location_label,
-            country: latestWithLoc.location_country ?? null,
-            lat: latestWithLoc.location_lat ?? null,
-            lng: latestWithLoc.location_lng ?? null,
-          }
-        : null,
-    );
+    // Used to auto-prefill the last-used location here, but that just
+    // creates an extra "clear it first" step now that LocationPicker
+    // shows quick-pick chips for your top 3 most-used locations - letting
+    // it start empty means those chips (or GPS/map) are the one clear way
+    // to (re)pick a location, instead of a silent pre-fill you have to
+    // notice and undo.
+    setSelectedLocation(null);
     setDialogOpen(true);
   };
 
@@ -714,6 +710,10 @@ export default function HomeScreen() {
             <BarChart3 size={16} color={view === "stats" ? colors.primaryForeground : colors.foreground} />
             <Text style={[styles.toggleText, view === "stats" && styles.toggleTextActive]}>Stats</Text>
           </Pressable>
+          <Pressable style={[styles.toggleButton, view === "map" && styles.toggleButtonActive]} onPress={() => setView("map")}>
+            <MapPin size={16} color={view === "map" ? colors.primaryForeground : colors.foreground} />
+            <Text style={[styles.toggleText, view === "map" && styles.toggleTextActive]}>Map</Text>
+          </Pressable>
           {isSuperuser && (
             <Pressable style={[styles.toggleButton, view === "admin" && styles.toggleButtonActive]} onPress={() => setView("admin")}>
               <Shield size={16} color={view === "admin" ? colors.primaryForeground : colors.foreground} />
@@ -735,6 +735,7 @@ export default function HomeScreen() {
             onViewYearInReview={(year) => navigation.navigate("YearInReview", { year })}
           />
         )}
+        {view === "map" && <ActivityMapView activities={activities} />}
         {view === "admin" && isSuperuser && (
           <View style={{ gap: spacing.sm }}>
             <View style={styles.adminTabRow}>
@@ -784,47 +785,13 @@ export default function HomeScreen() {
 
       {/* Log activity modal */}
       <Modal visible={dialogOpen} animationType="slide" onRequestClose={() => setDialogOpen(false)}>
-        <ScrollView style={styles.modalContainer} contentContainerStyle={styles.modalContent}>
+        <SafeAreaProvider>
+        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
+        <ScrollView contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalTitle}>Log Activity</Text>
 
           <Text style={styles.fieldLabel}>Date & Time</Text>
-          <View style={styles.dateTimeRow}>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateTimeText}>{customDateTime.toLocaleDateString()}</Text>
-            </Pressable>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.dateTimeText}>{customDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
-            </Pressable>
-          </View>
-          {showDatePicker && (
-            <DateTimePicker
-              value={customDateTime}
-              mode="date"
-              maximumDate={new Date()}
-              onChange={(_, selected) => {
-                setShowDatePicker(false);
-                if (selected) {
-                  const merged = new Date(customDateTime);
-                  merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-                  setCustomDateTime(merged);
-                }
-              }}
-            />
-          )}
-          {showTimePicker && (
-            <DateTimePicker
-              value={customDateTime}
-              mode="time"
-              onChange={(_, selected) => {
-                setShowTimePicker(false);
-                if (selected) {
-                  const merged = new Date(customDateTime);
-                  merged.setHours(selected.getHours(), selected.getMinutes());
-                  setCustomDateTime(merged);
-                }
-              }}
-            />
-          )}
+          <DateTimeField value={customDateTime} onChange={setCustomDateTime} maximumDate={new Date()} />
 
           <Text style={styles.fieldLabel}>Activity Type</Text>
           <EmojiSelector selectedEmoji={selectedEmoji} onSelect={setSelectedEmoji} />
@@ -853,6 +820,8 @@ export default function HomeScreen() {
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
         </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </SafeAreaView>
   );
@@ -1145,7 +1114,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.xl,
     gap: spacing.sm,
   },
   modalTitle: {
@@ -1157,17 +1126,6 @@ const styles = StyleSheet.create({
   dateTimeRow: {
     flexDirection: "row",
     gap: spacing.sm,
-  },
-  dateTimeButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.input,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  dateTimeText: {
-    color: colors.foreground,
   },
   primaryButton: {
     backgroundColor: colors.primary,

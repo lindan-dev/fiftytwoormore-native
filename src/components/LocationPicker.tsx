@@ -2,19 +2,22 @@
 // native piece in the whole migration: Leaflet (web-only) is replaced with
 // react-native-maps + expo-location. Reverse geocoding call (BigDataCloud)
 // is identical to the web version - it's a plain fetch, works the same here.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   Pressable,
   Modal,
   ActivityIndicator,
   Alert,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
-import { MapPin, X, Map as MapIcon } from "lucide-react-native";
+import { MapPin, X, Map as MapIcon, Search } from "lucide-react-native";
+import { supabase } from "../integrations/supabase/client";
 import { countryFlag } from "../lib/countryFlag";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -28,6 +31,64 @@ export interface LocationValue {
 interface Props {
   value: LocationValue | null;
   onChange: (val: LocationValue | null) => void;
+}
+
+// Ticket 4 (BACKLOG.md): quick-select chips for the person's own most-used
+// locations - individual per user, not shared with their partner, so this
+// deliberately queries activities filtered to the current user only, not
+// the couple-wide activity feed the rest of the app shows.
+// Location labels are formatted as "City, Country" (see reverseGeocode
+// below) - the quick-pick chips only need the city part, paired with the
+// flag, to stay compact enough for three to fit on one row.
+function cityOnly(label: string): string {
+  return label.split(",")[0].trim();
+}
+
+function useTopLocations(limit = 3) {
+  const [topLocations, setTopLocations] = useState<LocationValue[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("activities")
+        .select("location_label, location_country, location_lat, location_lng")
+        .eq("user_id", user.id)
+        .not("location_label", "is", null);
+
+      if (error || !data) return;
+
+      const counts = new Map<string, { value: LocationValue; count: number }>();
+      for (const row of data) {
+        if (!row.location_label) continue;
+        const existing = counts.get(row.location_label);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(row.location_label, {
+            count: 1,
+            value: {
+              label: row.location_label,
+              country: row.location_country,
+              lat: row.location_lat,
+              lng: row.location_lng,
+            },
+          });
+        }
+      }
+
+      const sorted = Array.from(counts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit)
+        .map((entry) => entry.value);
+
+      setTopLocations(sorted);
+    })();
+  }, [limit]);
+
+  return topLocations;
 }
 
 async function reverseGeocode(latitude: number, longitude: number): Promise<LocationValue> {
@@ -53,6 +114,7 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<Loca
 export default function LocationPicker({ value, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const topLocations = useTopLocations(3);
 
   const handleUseLocation = async () => {
     setLoading(true);
@@ -112,19 +174,32 @@ export default function LocationPicker({ value, onChange }: Props) {
           </Pressable>
         </View>
       ) : (
-        <View style={styles.row}>
-          <Pressable style={styles.outlineButton} onPress={handleUseLocation} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.foreground} />
-            ) : (
-              <MapPin size={16} color={colors.foreground} />
-            )}
-            <Text style={styles.outlineButtonText}>Use my location</Text>
-          </Pressable>
-          <Pressable style={styles.outlineButton} onPress={() => setMapOpen(true)}>
-            <MapIcon size={16} color={colors.foreground} />
-            <Text style={styles.outlineButtonText}>Pick on map</Text>
-          </Pressable>
+        <View>
+          {topLocations.length > 0 && (
+            <View style={styles.quickRow}>
+              {topLocations.map((loc, i) => (
+                <Pressable key={i} style={styles.quickChip} onPress={() => onChange(loc)}>
+                  <Text style={styles.quickChipText} numberOfLines={1}>
+                    {countryFlag(loc.country)} {cityOnly(loc.label)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <View style={styles.row}>
+            <Pressable style={styles.outlineButton} onPress={handleUseLocation} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.foreground} />
+              ) : (
+                <MapPin size={16} color={colors.foreground} />
+              )}
+              <Text style={styles.outlineButtonText}>Use my location</Text>
+            </Pressable>
+            <Pressable style={styles.outlineButton} onPress={() => setMapOpen(true)}>
+              <MapIcon size={16} color={colors.foreground} />
+              <Text style={styles.outlineButtonText}>Pick on map</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -150,15 +225,41 @@ function MapPickerModal({
   onPick: (lat: number, lng: number) => void;
 }) {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(initial);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   const handlePress = (e: MapPressEvent) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setPos({ lat: latitude, lng: longitude });
   };
 
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    try {
+      const results = await Location.geocodeAsync(query.trim());
+      if (results.length === 0) {
+        Alert.alert("Not found", "Couldn't find that address. Try a different search, or tap the map directly.");
+        return;
+      }
+      const { latitude, longitude } = results[0];
+      setPos({ lat: latitude, lng: longitude });
+      mapRef.current?.animateToRegion(
+        { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
+        400,
+      );
+    } catch {
+      Alert.alert("Search failed", "Couldn't search for that address right now. Try tapping the map directly.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
   return (
     <Modal visible={open} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalContainer}>
+      <SafeAreaProvider>
+      <SafeAreaView style={styles.modalContainer} edges={["top"]}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Pick a location</Text>
           <Pressable onPress={onClose}>
@@ -166,7 +267,23 @@ function MapPickerModal({
           </Pressable>
         </View>
 
+        <View style={styles.searchRow}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search for an address..."
+            style={styles.searchInput}
+            placeholderTextColor={colors.mutedForeground}
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
+          />
+          <Pressable style={styles.searchButton} onPress={handleSearch} disabled={searching}>
+            {searching ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Search size={18} color={colors.primaryForeground} />}
+          </Pressable>
+        </View>
+
         <MapView
+          ref={mapRef}
           style={styles.map}
           initialRegion={{
             latitude: initial?.lat ?? 20,
@@ -179,7 +296,7 @@ function MapPickerModal({
           {pos && <Marker coordinate={{ latitude: pos.lat, longitude: pos.lng }} />}
         </MapView>
 
-        <Text style={styles.modalHint}>Tap anywhere on the map to drop a pin.</Text>
+        <Text style={styles.modalHint}>Search for an address, or tap anywhere on the map to drop a pin.</Text>
 
         <View style={styles.modalFooter}>
           <Pressable style={styles.ghostButton} onPress={onClose}>
@@ -193,7 +310,8 @@ function MapPickerModal({
             <Text style={styles.primaryButtonText}>Use this spot</Text>
           </Pressable>
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -204,6 +322,25 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     alignItems: "center",
+  },
+  quickRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  quickChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.primary + "1a",
+    borderWidth: 1,
+    borderColor: colors.primary + "33",
+  },
+  quickChipText: {
+    fontSize: 12,
+    color: colors.foreground,
   },
   chip: {
     flexDirection: "row",
@@ -237,7 +374,29 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: spacing.xxl,
+  },
+  searchRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.input,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.foreground,
+  },
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalHeader: {
     flexDirection: "row",

@@ -6,10 +6,11 @@
 //  - Tailwind gradient/hover states -> flat colors (no hover on touch)
 import { useEffect, useState } from "react";
 import { View, Text, Pressable, Modal, TextInput, ScrollView, Alert, StyleSheet } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { Trash2, Pencil, MapPin } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
 import EmojiSelector from "./EmojiSelector";
+import DateTimeField from "./DateTimeField";
 import LocationPicker, { LocationValue } from "./LocationPicker";
 import { countryFlag } from "../lib/countryFlag";
 import { colors, radius, spacing } from "../theme/colors";
@@ -52,8 +53,6 @@ export default function ActivityLog({ activities, onDelete, onUpdate, currentUse
   const [editEmoji, setEditEmoji] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editLocation, setEditLocation] = useState<LocationValue | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -218,49 +217,13 @@ export default function ActivityLog({ activities, onDelete, onUpdate, currentUse
       })}
 
       <Modal visible={!!editingActivity} animationType="slide" onRequestClose={closeEdit}>
-        <ScrollView style={styles.modalContainer} contentContainerStyle={styles.modalContent}>
+        <SafeAreaProvider>
+        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
+        <ScrollView contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalTitle}>Edit Activity</Text>
 
           <Text style={styles.fieldLabel}>Date & time</Text>
-          <View style={styles.dateTimeRow}>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateTimeText}>{editDateTime.toLocaleDateString()}</Text>
-            </Pressable>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.dateTimeText}>
-                {editDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </Text>
-            </Pressable>
-          </View>
-          {showDatePicker && (
-            <DateTimePicker
-              value={editDateTime}
-              mode="date"
-              maximumDate={new Date()}
-              onChange={(_, selected) => {
-                setShowDatePicker(false);
-                if (selected) {
-                  const merged = new Date(editDateTime);
-                  merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-                  setEditDateTime(merged);
-                }
-              }}
-            />
-          )}
-          {showTimePicker && (
-            <DateTimePicker
-              value={editDateTime}
-              mode="time"
-              onChange={(_, selected) => {
-                setShowTimePicker(false);
-                if (selected) {
-                  const merged = new Date(editDateTime);
-                  merged.setHours(selected.getHours(), selected.getMinutes());
-                  setEditDateTime(merged);
-                }
-              }}
-            />
-          )}
+          <DateTimeField value={editDateTime} onChange={setEditDateTime} maximumDate={new Date()} />
 
           <Text style={styles.fieldLabel}>Emoji</Text>
           <EmojiSelector selectedEmoji={editEmoji} onSelect={setEditEmoji} />
@@ -289,6 +252,8 @@ export default function ActivityLog({ activities, onDelete, onUpdate, currentUse
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
         </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </View>
   );
@@ -383,7 +348,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.xl,
     gap: spacing.sm,
   },
   modalTitle: {
@@ -397,21 +362,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.foreground,
     marginTop: spacing.sm,
-  },
-  dateTimeRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  dateTimeButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.input,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  dateTimeText: {
-    color: colors.foreground,
   },
   input: {
     borderWidth: 1,

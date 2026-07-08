@@ -15,9 +15,10 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, MapPin } from "lucide-react-native";
 import EmojiSelector from "./EmojiSelector";
+import DateTimeField from "./DateTimeField";
 import LocationPicker, { LocationValue } from "./LocationPicker";
 import OnThisDay from "./OnThisDay";
 import { countryFlag } from "../lib/countryFlag";
@@ -87,8 +88,6 @@ export default function CalendarView({ activities, currentUserId, onDelete, onUp
   const [editEmoji, setEditEmoji] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editLocation, setEditLocation] = useState<LocationValue | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [anniversary, setAnniversary] = useState<string | null>(null);
 
@@ -417,49 +416,13 @@ export default function CalendarView({ activities, currentUserId, onDelete, onUp
 
       {/* Edit modal */}
       <Modal visible={!!editingActivity} animationType="slide" onRequestClose={() => setEditingActivity(null)}>
-        <ScrollView style={styles.modalContainer} contentContainerStyle={styles.modalContent}>
+        <SafeAreaProvider>
+        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
+        <ScrollView contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalTitle}>Edit Activity</Text>
 
           <Text style={styles.fieldLabel}>Date & time</Text>
-          <View style={styles.dateTimeRow}>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateTimeText}>{editDateTime.toLocaleDateString()}</Text>
-            </Pressable>
-            <Pressable style={styles.dateTimeButton} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.dateTimeText}>
-                {editDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </Text>
-            </Pressable>
-          </View>
-          {showDatePicker && (
-            <DateTimePicker
-              value={editDateTime}
-              mode="date"
-              maximumDate={new Date()}
-              onChange={(_, selected) => {
-                setShowDatePicker(false);
-                if (selected) {
-                  const merged = new Date(editDateTime);
-                  merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-                  setEditDateTime(merged);
-                }
-              }}
-            />
-          )}
-          {showTimePicker && (
-            <DateTimePicker
-              value={editDateTime}
-              mode="time"
-              onChange={(_, selected) => {
-                setShowTimePicker(false);
-                if (selected) {
-                  const merged = new Date(editDateTime);
-                  merged.setHours(selected.getHours(), selected.getMinutes());
-                  setEditDateTime(merged);
-                }
-              }}
-            />
-          )}
+          <DateTimeField value={editDateTime} onChange={setEditDateTime} maximumDate={new Date()} />
 
           <Text style={styles.fieldLabel}>Emoji</Text>
           <EmojiSelector selectedEmoji={editEmoji} onSelect={setEditEmoji} />
@@ -488,6 +451,8 @@ export default function CalendarView({ activities, currentUserId, onDelete, onUp
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </Pressable>
         </ScrollView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </View>
   );
@@ -628,7 +593,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.xl,
     gap: spacing.sm,
   },
   modalTitle: {
@@ -694,21 +659,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.foreground,
     marginTop: spacing.sm,
-  },
-  dateTimeRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  dateTimeButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.input,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  dateTimeText: {
-    color: colors.foreground,
   },
   input: {
     borderWidth: 1,
