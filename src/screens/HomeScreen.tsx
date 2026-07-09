@@ -333,7 +333,13 @@ export default function HomeScreen() {
 
   const shareInvitationLink = async () => {
     if (!myInvitationCode) return;
-    const link = ExpoLinking.createURL("connect", { queryParams: { code: myInvitationCode } });
+    // Goes through the web bridge page instead of a raw fiftytwoormore://
+    // link - a custom URL scheme fails completely silently if the
+    // recipient doesn't have the app installed yet (very likely for a
+    // first-time invite), or opens it on a desktop. The bridge page
+    // handles both: opens the app directly if installed, shows a
+    // friendly fallback otherwise.
+    const link = `https://fiftytwoormore.com/app-redirect?type=connect&code=${encodeURIComponent(myInvitationCode)}`;
     try {
       await Share.share({
         message: `Join me on fiftytwoormore so we can start tracking our moments together: ${link}`,

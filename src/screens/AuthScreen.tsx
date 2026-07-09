@@ -18,7 +18,6 @@ import {
 } from "react-native";
 import { Heart, Mail } from "lucide-react-native";
 import { z } from "zod";
-import * as Linking from "expo-linking";
 import * as Application from "expo-application";
 import { supabase } from "../integrations/supabase/client";
 import { colors, radius, spacing } from "../theme/colors";
@@ -82,7 +81,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         }
 
         const { error } = await supabase.auth.resetPasswordForEmail(result.data, {
-          redirectTo: Linking.createURL("reset-password"),
+          redirectTo: "https://fiftytwoormore.com/app-redirect",
         });
         if (error) throw error;
 
@@ -107,7 +106,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
           password: result.data.password,
           options: {
             data: { name: result.data.name },
-            emailRedirectTo: Linking.createURL("email-confirmed"),
+            emailRedirectTo: "https://fiftytwoormore.com/app-redirect",
           },
         });
         if (error) throw error;
