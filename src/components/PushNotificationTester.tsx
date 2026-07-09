@@ -105,14 +105,14 @@ export default function PushNotificationTester() {
 
         <Pressable
           style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
-          onPress={() => testTrigger("Weekly digest", "send-weekly-digest-push")}
+          onPress={() => testTrigger("Weekly digest", "send-weekly-digest-push", { force: true })}
           disabled={sending}
         >
           <Text style={styles.secondaryButtonText}>Weekly digest push</Text>
         </Pressable>
         <Pressable
           style={[styles.button, styles.secondaryButton, sending && styles.buttonDisabled]}
-          onPress={() => testTrigger("Midweek nudge", "send-midweek-nudge-push")}
+          onPress={() => testTrigger("Midweek nudge", "send-midweek-nudge-push", { force: true })}
           disabled={sending}
         >
           <Text style={styles.secondaryButtonText}>Midweek nudge push</Text>
