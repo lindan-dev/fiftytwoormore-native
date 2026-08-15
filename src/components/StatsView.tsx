@@ -28,6 +28,7 @@ import {
 } from "lucide-react-native";
 import PeriodPicker from "./PeriodPicker";
 import { usePeriodStats } from "../hooks/usePeriodStats";
+import { comparisonLabels } from "./PeriodPicker";
 import { colors, radius, spacing } from "../theme/colors";
 import {
   startOfWeek,
@@ -78,7 +79,7 @@ function getCohortLabel(cohortKey: string): string {
   return labels[cohortKey] || cohortKey;
 }
 
-function TrendBadge({ difference }: { difference: number }) {
+function TrendBadge({ difference, label = "vs previous" }: { difference: number; label?: string }) {
   const Icon = difference > 0 ? TrendingUp : difference < 0 ? TrendingDown : Minus;
   const color = difference > 0 ? "#22c55e" : difference < 0 ? "#ef4444" : colors.mutedForeground;
   return (
@@ -88,7 +89,7 @@ function TrendBadge({ difference }: { difference: number }) {
         {difference > 0 ? "+" : ""}
         {difference}
       </Text>
-      <Text style={styles.trendMuted}>vs previous</Text>
+      <Text style={styles.trendMuted}>{label}</Text>
     </View>
   );
 }
@@ -109,12 +110,14 @@ function SimpleStatCard({
   value,
   color = colors.primary,
   difference,
+  comparisonLabel,
 }: {
   icon: LucideIcon;
   title: string;
   value: number;
   color?: string;
   difference?: number;
+  comparisonLabel?: string;
 }) {
   return (
     <View style={[styles.card, styles.simpleCard]}>
@@ -123,7 +126,7 @@ function SimpleStatCard({
           {title}
         </Text>
         <Text style={[styles.mediumNumber, { color }]}>{value}</Text>
-        {difference !== undefined && <TrendBadge difference={difference} />}
+        {difference !== undefined && <TrendBadge difference={difference} label={comparisonLabel} />}
       </View>
       <Icon size={28} color={color} />
     </View>
@@ -449,17 +452,17 @@ export default function StatsView({
       </View>
 
       <View style={styles.grid2}>
-        <SimpleStatCard icon={Rabbit} title="Double Days" value={getBunnyComparison("doubleDays").current} color="#3b82f6" difference={getBunnyComparison("doubleDays").difference} />
-        <SimpleStatCard icon={Rabbit} title="Triple Days" value={getBunnyComparison("tripleDays").current} color="#a855f7" difference={getBunnyComparison("tripleDays").difference} />
+        <SimpleStatCard icon={Rabbit} title="Double Days" value={getBunnyComparison("doubleDays").current} color="#3b82f6" difference={getBunnyComparison("doubleDays").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Rabbit} title="Triple Days" value={getBunnyComparison("tripleDays").current} color="#a855f7" difference={getBunnyComparison("tripleDays").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
       </View>
 
       <View style={styles.grid2}>
-        <SimpleStatCard icon={Sunrise} title="Early Bird" value={getTimeOfDayComparison("earlyBird").current} color="#f59e0b" difference={getTimeOfDayComparison("earlyBird").difference} />
-        <SimpleStatCard icon={Coffee} title="Lazy Morning" value={getTimeOfDayComparison("lazyMorning").current} color="#a16207" difference={getTimeOfDayComparison("lazyMorning").difference} />
-        <SimpleStatCard icon={Sun} title="Nooner" value={getTimeOfDayComparison("nooner").current} color="#eab308" difference={getTimeOfDayComparison("nooner").difference} />
-        <SimpleStatCard icon={Sunset} title="Afternoon Delight" value={getTimeOfDayComparison("afternoon").current} color="#fb923c" difference={getTimeOfDayComparison("afternoon").difference} />
-        <SimpleStatCard icon={Stars} title="Evening Bliss" value={getTimeOfDayComparison("evening").current} color="#a855f7" difference={getTimeOfDayComparison("evening").difference} />
-        <SimpleStatCard icon={Moon} title="Night Owl" value={getTimeOfDayComparison("nightOwl").current} color="#6366f1" difference={getTimeOfDayComparison("nightOwl").difference} />
+        <SimpleStatCard icon={Sunrise} title="Early Bird" value={getTimeOfDayComparison("earlyBird").current} color="#f59e0b" difference={getTimeOfDayComparison("earlyBird").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Coffee} title="Lazy Morning" value={getTimeOfDayComparison("lazyMorning").current} color="#a16207" difference={getTimeOfDayComparison("lazyMorning").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Sun} title="Nooner" value={getTimeOfDayComparison("nooner").current} color="#eab308" difference={getTimeOfDayComparison("nooner").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Sunset} title="Afternoon Delight" value={getTimeOfDayComparison("afternoon").current} color="#fb923c" difference={getTimeOfDayComparison("afternoon").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Stars} title="Evening Bliss" value={getTimeOfDayComparison("evening").current} color="#a855f7" difference={getTimeOfDayComparison("evening").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
+        <SimpleStatCard icon={Moon} title="Night Owl" value={getTimeOfDayComparison("nightOwl").current} color="#6366f1" difference={getTimeOfDayComparison("nightOwl").difference} comparisonLabel={comparisonLabels[periodStats.comparison]} />
       </View>
 
       {benchmarkOptIn && (

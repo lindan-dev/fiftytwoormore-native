@@ -7,6 +7,7 @@ import {
   subYears,
   isWithinInterval,
   getHours,
+  differenceInCalendarDays,
 } from "date-fns";
 import type { PeriodOption, ComparisonOption } from "../components/PeriodPicker";
 
@@ -18,6 +19,60 @@ interface Activity {
 interface PeriodBounds {
   start: Date;
   end: Date;
+}
+
+// Nominal length of each period, used only to figure out how many
+// equivalent periods fit into the person's whole history - so "All Time
+// Average" can divide the all-time total into a genuine per-period
+// average, instead of comparing the current period against the raw
+// all-time total (which always looks like a huge drop, regardless of how
+// the current period actually went).
+function getPeriodLengthInDays(period: PeriodOption): number {
+  switch (period) {
+    case "this-month":
+      return 30;
+    case "last-8-weeks":
+      return 56;
+    case "this-year":
+      return 365;
+    case "all-time":
+      return 0; // not applicable - "all-time" has no meaningful average of itself
+  }
+}
+
+function computeAllTimeAverage(
+  activities: Activity[],
+  period: PeriodOption,
+  now: Date
+): { bunnyDays: BunnyDaysStats; timeOfDay: TimeOfDayStats } {
+  const periodLengthDays = getPeriodLengthInDays(period);
+
+  const earliestActivity = activities.reduce<Date | null>((earliest, a) => {
+    const d = new Date(a.activity_date);
+    return !earliest || d < earliest ? d : earliest;
+  }, null);
+
+  // No history yet, or "all-time" itself selected (no periods to divide
+  // into) - fall back to 1 period, so the average is just the raw total
+  // rather than dividing by zero.
+  const historyDays = earliestActivity ? Math.max(1, differenceInCalendarDays(now, earliestActivity)) : periodLengthDays;
+  const numPeriods = periodLengthDays > 0 ? Math.max(1, historyDays / periodLengthDays) : 1;
+
+  const allTimeBunny = calculateBunnyDays(activities);
+  const allTimeTod = calculateTimeOfDay(activities);
+
+  const bunnyDays: BunnyDaysStats = {
+    doubleDays: Math.round(allTimeBunny.doubleDays / numPeriods),
+    tripleDays: Math.round(allTimeBunny.tripleDays / numPeriods),
+  };
+
+  const todKeys = Object.keys(allTimeTod) as (keyof TimeOfDayStats)[];
+  const timeOfDay = todKeys.reduce((acc, key) => {
+    acc[key] = Math.round(allTimeTod[key] / numPeriods);
+    return acc;
+  }, {} as TimeOfDayStats);
+
+  return { bunnyDays, timeOfDay };
 }
 
 function getPeriodBounds(period: PeriodOption, referenceDate: Date = new Date()): PeriodBounds {
@@ -41,30 +96,39 @@ function getComparisonBounds(
   allActivities: Activity[]
 ): PeriodBounds {
   const now = new Date();
-  
-  if (comparison === "all-time-average") {
-    // Return full history for averaging
-    return { start: new Date(0), end: now };
-  }
-  
+  const currentBounds = getPeriodBounds(period, now);
+
+  // "all-time-average" is handled separately via computeAllTimeAverage()
+  // (a true per-period average, not a filtered window) - this function is
+  // now only ever called for "previous-period" and "same-period-last-year".
+
   if (comparison === "same-period-last-year") {
-    // Compare against the entire previous calendar year
-    // This is more intuitive when users select "vs Last year"
-    const lastYearStart = startOfYear(subYears(now, 1));
-    const lastYearEnd = new Date(lastYearStart.getFullYear(), 11, 31, 23, 59, 59, 999);
-    return { start: lastYearStart, end: lastYearEnd };
+    // Elapsed-matched: shift the CURRENT window back exactly one year,
+    // instead of always comparing against the entire previous calendar
+    // year. If today is Jul 15 and "this-year" is selected, this compares
+    // Jan 1-Jul 15 this year against Jan 1-Jul 15 last year - not this
+    // year's 196 days against all 365 days of last year.
+    return {
+      start: subYears(currentBounds.start, 1),
+      end: subYears(currentBounds.end, 1),
+    };
   }
-  
-  // Previous period - shifts the current period window back
+
+  // "previous-period": shift the CURRENT window back by one period-length
+  // instead of comparing against the previous period's full length. A
+  // partial current period (e.g. 15 days into this month) now compares
+  // against an equally partial previous period (the first 15 days of last
+  // month), so the delta reflects an actual difference in activity, not
+  // just "this period isn't over yet".
   switch (period) {
     case "this-month":
-      return { start: subMonths(startOfMonth(now), 1), end: startOfMonth(now) };
+      return { start: subMonths(currentBounds.start, 1), end: subMonths(currentBounds.end, 1) };
     case "last-8-weeks":
-      return { start: subWeeks(now, 16), end: subWeeks(now, 8) };
+      return { start: subWeeks(currentBounds.start, 8), end: subWeeks(currentBounds.end, 8) };
     case "this-year":
-      return { start: subYears(startOfYear(now), 1), end: startOfYear(now) };
+      return { start: subYears(currentBounds.start, 1), end: subYears(currentBounds.end, 1) };
     case "all-time":
-      // No meaningful "previous" for all-time
+      // No meaningful "previous" for all-time.
       return { start: new Date(0), end: now };
   }
 }
@@ -162,17 +226,26 @@ export function usePeriodStats(activities: Activity[]): PeriodStatsResult {
   const [comparison, setComparison] = useState<ComparisonOption>("previous-period");
 
   const result = useMemo(() => {
-    const currentBounds = getPeriodBounds(period);
-    const comparisonBounds = getComparisonBounds(period, comparison, activities);
-
+    const now = new Date();
+    const currentBounds = getPeriodBounds(period, now);
     const currentActivities = filterActivities(activities, currentBounds);
-    const comparisonActivities = filterActivities(activities, comparisonBounds);
 
     const timeOfDay = calculateTimeOfDay(currentActivities);
     const bunnyDays = calculateBunnyDays(currentActivities);
-    
-    const comparisonTimeOfDay = calculateTimeOfDay(comparisonActivities);
-    const comparisonBunnyDays = calculateBunnyDays(comparisonActivities);
+
+    let comparisonTimeOfDay: TimeOfDayStats;
+    let comparisonBunnyDays: BunnyDaysStats;
+
+    if (comparison === "all-time-average") {
+      const avg = computeAllTimeAverage(activities, period, now);
+      comparisonTimeOfDay = avg.timeOfDay;
+      comparisonBunnyDays = avg.bunnyDays;
+    } else {
+      const comparisonBounds = getComparisonBounds(period, comparison, activities);
+      const comparisonActivities = filterActivities(activities, comparisonBounds);
+      comparisonTimeOfDay = calculateTimeOfDay(comparisonActivities);
+      comparisonBunnyDays = calculateBunnyDays(comparisonActivities);
+    }
 
     // Calculate deltas
     const bunnyDaysDelta = {
