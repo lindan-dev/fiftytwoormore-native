@@ -44,6 +44,13 @@ export const EMOJI_LABEL_MAP: Record<string, string> = {
   '💕': 'All the feels',
   '🌹': 'Romantic vibes',
   '💎': 'Something special',
+
+  // Surprises & Twists
+  '😴': 'Sleepy Surprise',
+  '🥷': 'Nightly Visit',
+  '🙈': 'Blindfolded',
+  '⚡️': 'Quickie',
+  '🔺': 'Table for three',
   
   // Extras & Props
   '🥕': 'Extra help',
@@ -142,6 +149,10 @@ const LABEL_CATEGORY_MAP: Record<string, EmojiCategory> = {
   'A bit naughty': 'PLAYFUL_TEASE',
   'Overheated': 'PLAYFUL_TEASE',
   'Things escalated': 'PLAYFUL_TEASE',
+  'Sleepy Surprise': 'PLAYFUL_TEASE',
+  'Nightly Visit': 'PLAYFUL_TEASE',
+  'Blindfolded': 'PLAYFUL_TEASE',
+  'Quickie': 'PLAYFUL_TEASE',
 
   // SPICY_HEAT
   'Extra spicy': 'SPICY_HEAT',
@@ -161,6 +172,7 @@ const LABEL_CATEGORY_MAP: Record<string, EmojiCategory> = {
   'Extra help': 'SPICY_HEAT',
   'Steamy': 'SPICY_HEAT',
   'Lips at work': 'SPICY_HEAT',
+  'Table for three': 'SPICY_HEAT',
 
   // LOCATION_HOME
   'Bedroom': 'LOCATION_HOME',
@@ -257,6 +269,7 @@ export function getEmojiPresets(): Array<{ emoji: string; label: string }> {
     '🍑', '🍆', '💋', '💥', '👅', '🍩', '👉', '✂️', '♋️', '🏇',
     '💃', '🔥', '💦', '🌶️', '🍦', '🌽', '🍒', '🍌', '🥕', '🥵',
     '😈', '👄', '💕', '✨', '🎀', '🧊', '🕯️', '🌹', '💎', '🎭',
+    '😴', '🥷', '🙈', '⚡️', '🔺',
     '🦋', '⛓️', '🛏️', '🛋️', '🧺', '🚿', '🛁', '🪑', '🍽️', '🌳',
     '🏖️', '🏕️', '🏩', '🚻', '🧖', '👙', '🗺️', '🚗', '🚌', '🚂',
     '✈️', '🛥️', '🎥', '📸',

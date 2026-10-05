@@ -23,9 +23,9 @@ import { supabase } from "../integrations/supabase/client";
 import { colors, radius, spacing } from "../theme/colors";
 
 const authSchema = z.object({
-  email: z.string().trim().email("Ogiltig e-postadress").max(255),
-  password: z.string().min(8, "Lösenordet måste vara minst 8 tecken").max(72),
-  name: z.string().trim().min(1, "Namn krävs").max(100).optional(),
+  email: z.string().trim().email("Invalid email address").max(255),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+  name: z.string().trim().min(1, "Name is required").max(100).optional(),
 });
 
 interface AuthScreenProps {
@@ -73,9 +73,9 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
     setLoading(true);
     try {
       if (isForgotPassword) {
-        const result = z.string().trim().email("Ogiltig e-postadress").safeParse(email);
+        const result = z.string().trim().email("Invalid email address").safeParse(email);
         if (!result.success) {
-          Alert.alert("Valideringsfel", "Ange en giltig e-postadress");
+          Alert.alert("Validation error", "Please enter a valid email address");
           setLoading(false);
           return;
         }
@@ -85,7 +85,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         });
         if (error) throw error;
 
-        Alert.alert("Kolla din e-post", "Vi har skickat en återställningslänk.");
+        Alert.alert("Check your email", "We've sent you a password reset link.");
         setIsForgotPassword(false);
         setEmail("");
         setLoading(false);
@@ -95,7 +95,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
       const validationData = isSignUp ? { email, password, name } : { email, password };
       const result = authSchema.safeParse(validationData);
       if (!result.success) {
-        Alert.alert("Valideringsfel", result.error.errors[0].message);
+        Alert.alert("Validation error", result.error.errors[0].message);
         setLoading(false);
         return;
       }
@@ -130,7 +130,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         // to the main app automatically once this resolves.
       }
     } catch (error: any) {
-      Alert.alert("Fel", error.message ?? "Något gick fel");
+      Alert.alert("Error", error.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -183,19 +183,19 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         ) : (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
-            {isForgotPassword ? "Återställ lösenord" : isSignUp ? "Skapa konto" : "Logga in"}
+            {isForgotPassword ? "Reset password" : isSignUp ? "Create account" : "Log in"}
           </Text>
           <Text style={styles.cardSubtitle}>
             {isForgotPassword
-              ? "Ange din e-post för en återställningslänk"
+              ? "Enter your email to get a reset link"
               : isSignUp
-              ? "Kom igång med fiftytwoormore"
-              : "Välkommen tillbaka"}
+              ? "Get started with fiftytwoormore"
+              : "Welcome back"}
           </Text>
 
           {isSignUp && !isForgotPassword && (
             <TextInput
-              placeholder="Namn"
+              placeholder="Name"
               value={name}
               onChangeText={setName}
               style={styles.input}
@@ -204,7 +204,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
           )}
 
           <TextInput
-            placeholder="E-post"
+            placeholder="Email"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -215,7 +215,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
 
           {!isForgotPassword && (
             <TextInput
-              placeholder="Lösenord"
+              placeholder="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -229,7 +229,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
               <ActivityIndicator color={colors.primaryForeground} />
             ) : (
               <Text style={styles.primaryButtonText}>
-                {isForgotPassword ? "Skicka länk" : isSignUp ? "Skapa konto" : "Logga in"}
+                {isForgotPassword ? "Send link" : isSignUp ? "Create account" : "Log in"}
               </Text>
             )}
           </Pressable>
@@ -237,7 +237,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
           {!isForgotPassword && (
             <Pressable onPress={() => setIsSignUp(!isSignUp)} style={styles.linkButton}>
               <Text style={styles.linkText}>
-                {isSignUp ? "Har du redan ett konto? Logga in" : "Inget konto? Skapa ett"}
+                {isSignUp ? "Already have an account? Log in" : "No account? Create one"}
               </Text>
             </Pressable>
           )}
@@ -247,7 +247,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
             style={styles.linkButton}
           >
             <Text style={styles.linkText}>
-              {isForgotPassword ? "Tillbaka till inloggning" : "Glömt lösenord?"}
+              {isForgotPassword ? "Back to log in" : "Forgot password?"}
             </Text>
           </Pressable>
         </View>
