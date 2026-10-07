@@ -769,14 +769,9 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Support link */}
-        <Pressable
-          style={styles.supportLink}
-          onPress={() => Linking.openURL("https://buy.stripe.com/14AbJ34zR6ofcci1fJ5EY00")}
-        >
-          <Heart size={14} color={colors.mutedForeground} fill={colors.mutedForeground} />
-          <Text style={styles.supportLinkText}>Support our project - cheaper than therapy</Text>
-        </Pressable>
+        {/* The "Support our project" payment link was removed from the app: Apple
+            treats a link that leads to an external payment page as an in-app
+            purchase (App Review Guideline 3.1.1). It stays on the website only. */}
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>© {new Date().getFullYear()} Lindan AB. All rights reserved.</Text>
@@ -1088,17 +1083,6 @@ const styles = StyleSheet.create({
   adminTabTextActive: {
     color: colors.primary,
     fontWeight: "600",
-  },
-  supportLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  supportLinkText: {
-    fontSize: 13,
-    color: colors.mutedForeground,
   },
   footer: {
     alignItems: "center",
