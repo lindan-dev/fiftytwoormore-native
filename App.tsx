@@ -3,8 +3,12 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { addNotificationTapListener } from "./src/lib/pushNotifications";
+import { initMonitoring, wrapRoot } from "./src/lib/monitoring";
 
-export default function App() {
+// As early as possible, so errors during startup are captured too.
+initMonitoring();
+
+function App() {
   useEffect(() => {
     const subscription = addNotificationTapListener();
     return () => subscription.remove();
@@ -17,3 +21,5 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+export default wrapRoot(App);

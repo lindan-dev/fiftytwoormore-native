@@ -441,7 +441,9 @@ export default function StatsView({
         </>
       )}
 
-      <View style={styles.sectionHeaderRow}>
+      {/* Title above, pickers on their own row below: side by side they overflowed the
+          screen edge with the longest labels ("Last 8 weeks" + "vs Previous period"). */}
+      <View style={styles.periodHeader}>
         <Text style={styles.subTitle}>Even more stats</Text>
         <PeriodPicker
           period={periodStats.period}
@@ -560,11 +562,9 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     marginTop: spacing.sm,
   },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  periodHeader: {
     marginTop: spacing.sm,
+    gap: spacing.xs,
   },
   rowGap: {
     flexDirection: "row",

@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   StyleSheet,
 } from "react-native";
@@ -20,6 +21,8 @@ import { Heart, Mail } from "lucide-react-native";
 import { z } from "zod";
 import * as Application from "expo-application";
 import { supabase } from "../integrations/supabase/client";
+import { PRIVACY_POLICY_URL } from "../lib/links";
+import { isExpectedAuthError, reportError } from "../lib/monitoring";
 import { colors, radius, spacing } from "../theme/colors";
 
 const authSchema = z.object({
@@ -63,6 +66,7 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
       if (error) throw error;
       Alert.alert("Sent!", "Check your inbox for a new confirmation email.");
     } catch (error: any) {
+      reportError(error, { flow: "auth_resend_confirmation" });
       Alert.alert("Error", error.message ?? "Could not resend the email");
     } finally {
       setResending(false);
@@ -112,9 +116,10 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         if (error) throw error;
 
         try {
-          await supabase.functions.invoke("notify-user-signup", {
+          const { error: notifyError } = await supabase.functions.invoke("notify-user-signup", {
             body: { email: result.data.email, name: result.data.name || "there" },
           });
+          if (notifyError) reportError(notifyError, { flow: "notify_user_signup" });
         } catch (emailError) {
           console.error("Error sending welcome email:", emailError);
         }
@@ -130,6 +135,10 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
         // to the main app automatically once this resolves.
       }
     } catch (error: any) {
+      // Wrong password and the like are normal; anything else (email rate limit, network) is not.
+      if (!isExpectedAuthError(error?.message)) {
+        reportError(error, { flow: isForgotPassword ? "auth_reset" : isSignUp ? "auth_signup" : "auth_login" });
+      }
       Alert.alert("Error", error.message ?? "Something went wrong");
     } finally {
       setLoading(false);
@@ -250,6 +259,14 @@ export default function AuthScreen({ defaultToSignUp = false }: AuthScreenProps)
               {isForgotPassword ? "Back to log in" : "Forgot password?"}
             </Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+            style={styles.linkButton}
+            accessibilityRole="link"
+          >
+            <Text style={[styles.linkText, styles.underlined]}>Privacy Policy</Text>
+          </Pressable>
         </View>
         )}
       </View>
@@ -351,5 +368,8 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 14,
     color: colors.mutedForeground,
+  },
+  underlined: {
+    textDecorationLine: "underline",
   },
 });

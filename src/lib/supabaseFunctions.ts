@@ -1,4 +1,5 @@
 import { supabase } from "../integrations/supabase/client";
+import { reportError } from "./monitoring";
 
 /**
  * Wraps supabase.functions.invoke() to explicitly attach the current
@@ -28,5 +29,12 @@ export async function invokeFunction<T = any>(
 ): Promise<{ data: T | null; error: Error | null }> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-  return supabase.functions.invoke<T>(name, { ...options, headers });
+  const result = await supabase.functions.invoke<T>(name, { ...options, headers });
+  if (result.error) {
+    // 4xx is the function saying "no" to a bad request (for example a mistyped invitation
+    // code): expected, not worth an alert. 5xx and network failures are real problems.
+    const status = (result.error as { context?: { status?: number } }).context?.status;
+    if (!status || status >= 500) reportError(result.error, { flow: "edge_function", function_name: name });
+  }
+  return result;
 }

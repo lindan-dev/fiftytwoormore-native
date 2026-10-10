@@ -49,6 +49,7 @@ import {
 } from "lucide-react-native";
 import { supabase } from "../integrations/supabase/client";
 import { invokeFunction } from "../lib/supabaseFunctions";
+import { reportError } from "../lib/monitoring";
 import { registerForPushNotificationsAsync } from "../lib/pushNotifications";
 import { PENDING_INVITE_CODE_KEY, extractInviteCode } from "../lib/storageKeys";
 import { useAnalytics } from "../hooks/useAnalytics";
@@ -317,6 +318,7 @@ export default function HomeScreen() {
       setInvitationCreatedAt(data.created_at);
       track("invitation_code_generated");
     } catch (error: any) {
+      reportError(error, { flow: "invitation_generate" });
       Alert.alert("Error", error.message);
     } finally {
       setSendingInvitation(false);
@@ -394,6 +396,7 @@ export default function HomeScreen() {
       Alert.alert("Connected!", "You and your partner are now connected.");
       checkPartnerStatus(userId);
     } catch (error: any) {
+      reportError(error, { flow: "invitation_connect" });
       Alert.alert("Error", error.message);
     } finally {
       setSendingInvitation(false);
@@ -416,6 +419,7 @@ export default function HomeScreen() {
     ]);
 
     if (error) {
+      reportError(error, { flow: "activity_log" });
       Alert.alert("Error", "Failed to log activity");
     } else {
       const isFirstActivity = activities.length === 0;

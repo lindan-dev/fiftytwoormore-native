@@ -9,11 +9,14 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Linking,
   ScrollView,
   Switch,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PRIVACY_POLICY_URL } from "../lib/links";
+import { reportError } from "../lib/monitoring";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { Session } from "@supabase/supabase-js";
@@ -129,7 +132,7 @@ export default function ProfileScreen() {
           const disconnectedPartnerName = partnerProfile?.name || "Your partner";
           Alert.alert(
             "Partner Disconnected",
-            `${disconnectedPartnerName} has disconnected from you and all your data is gone. Better luck next time.`,
+            `${disconnectedPartnerName} has disconnected. Your shared history has been deleted for both of you.`,
           );
           setPartner(null);
           navigation.goBack();
@@ -200,6 +203,7 @@ export default function ProfileScreen() {
       setPartner(null);
       navigation.goBack();
     } catch (error: any) {
+      reportError(error, { flow: "disconnect_partner" });
       Alert.alert("Error", error.message);
     } finally {
       setDisconnecting(false);
@@ -209,10 +213,10 @@ export default function ProfileScreen() {
   const handleDisconnect = () => {
     Alert.alert(
       "Are you sure?",
-      "This will disconnect you from your partner. You'll need a new invitation code to reconnect. All shared activity history will remain but you won't be able to add new activities until you connect again.",
+      "Your activity history is shared with your partner, so disconnecting permanently deletes it for both of you. This cannot be undone. You'll need a new invitation code to reconnect.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Disconnect", style: "destructive", onPress: performDisconnect },
+        { text: "Disconnect and delete", style: "destructive", onPress: performDisconnect },
       ],
     );
   };
@@ -233,6 +237,8 @@ export default function ProfileScreen() {
       Alert.alert("Account Deleted", "All your data has been permanently deleted");
       await supabase.auth.signOut();
     } catch (error: any) {
+      // A failed account deletion matters (people have a right to be deleted), so always report it.
+      reportError(error, { flow: "delete_account" });
       Alert.alert("Error", error.message);
       setDeleting(false);
     }
@@ -241,7 +247,7 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Your Account?",
-      "This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including your profile, activity history, partner connection, and all invitations.",
+      "This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including your profile, activity history, partner connection, and all invitations. If you're connected to a partner, your shared activity history is deleted for both of you.",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Delete Everything", style: "destructive", onPress: performDeleteAccount },
@@ -426,6 +432,14 @@ export default function ProfileScreen() {
             )}
           </Pressable>
         </View>
+
+        <Pressable
+          onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+          style={styles.privacyLink}
+          accessibilityRole="link"
+        >
+          <Text style={styles.privacyLinkText}>Privacy Policy</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -551,6 +565,15 @@ const styles = StyleSheet.create({
   destructiveButtonText: {
     color: "#fff",
     fontWeight: "600",
+  },
+  privacyLink: {
+    alignItems: "center",
+    paddingVertical: spacing.md,
+  },
+  privacyLinkText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textDecorationLine: "underline",
   },
   switchRow: {
     flexDirection: "row",

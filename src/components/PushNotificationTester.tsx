@@ -6,6 +6,7 @@ import { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, StyleSheet } from "react-native";
 import { supabase } from "../integrations/supabase/client";
 import { invokeFunction } from "../lib/supabaseFunctions";
+import { reportError } from "../lib/monitoring";
 import { colors, radius, spacing } from "../theme/colors";
 
 export default function PushNotificationTester() {
@@ -133,6 +134,28 @@ export default function PushNotificationTester() {
         </Pressable>
 
         {lastResult && <Text style={styles.resultText}>{lastResult}</Text>}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Test Error Reporting</Text>
+        <Text style={styles.description}>
+          Sends one harmless test error to Sentry so you can confirm reporting works. It only works in a
+          production build (TestFlight or App Store), never in development.
+        </Text>
+        <Pressable
+          style={[styles.button, styles.secondaryButton]}
+          onPress={() => {
+            const sent = reportError(new Error("Sentry test error from the admin tab"), { flow: "admin_test" });
+            Alert.alert(
+              sent ? "Test error sent" : "Not sent",
+              sent
+                ? "Look for the error named 'Sentry test error from the admin tab' in Sentry within a minute."
+                : "Error reporting is off in this build: it is a development build, or no DSN was set for the build.",
+            );
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>Send test error to Sentry</Text>
+        </Pressable>
       </View>
     </View>
   );

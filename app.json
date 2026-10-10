@@ -2,7 +2,7 @@
   "expo": {
     "name": "fiftytwoormore",
     "slug": "fiftytwoormore",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "scheme": "fiftytwoormore",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +23,10 @@
     },
     "android": {
       "package": "com.lindan.fiftytwoormore",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       [
@@ -37,6 +40,12 @@
         {
           "icon": "./assets/icon.png",
           "color": "#ED765E"
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://de.sentry.io/"
         }
       ]
     ],
