@@ -107,6 +107,23 @@ export default function RootNavigator() {
       const initialUrl = await ExpoLinking.getInitialURL();
       if (initialUrl?.includes("connect")) {
         await captureConnectLink(initialUrl);
+      } else if (initialUrl && (initialUrl.includes("email-confirmed") || initialUrl.includes("reset-password"))) {
+        // Cold-start case: the app was not running when the user tapped the
+        // confirmation / reset link, so the url event listener below never
+        // fires. Without this, the tokens are dropped and the user lands on
+        // the login screen with no feedback, even though the email is
+        // already confirmed server-side.
+        const tokens = extractAuthTokens(initialUrl);
+        if (tokens) {
+          const { error } = await supabase.auth.setSession(tokens);
+          if (!error) {
+            if (initialUrl.includes("reset-password")) {
+              setIsPasswordRecovery(true);
+            } else {
+              Alert.alert("Email confirmed! 🎉", "Time to invite your partner.");
+            }
+          }
+        }
       }
 
       const { data } = await supabase.auth.getSession();
