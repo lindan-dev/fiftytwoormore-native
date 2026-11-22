@@ -14,6 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
+      prompts: {
+        Row: {
+          id: string
+          text: string
+          category: string
+          active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          text: string
+          category: string
+          active?: boolean
+          sort_order: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          text?: string
+          category?: string
+          active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      prompt_rounds: {
+        Row: {
+          id: string
+          couple_id: string
+          prompt_id: string
+          week_start: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          couple_id: string
+          prompt_id: string
+          week_start: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          couple_id?: string
+          prompt_id?: string
+          week_start?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      prompt_answers: {
+        Row: {
+          id: string
+          round_id: string
+          user_id: string
+          answers: Json
+          created_at: string
+          updated_at: string
+          partner_notified_at: string | null
+        }
+        Insert: {
+          id?: string
+          round_id: string
+          user_id: string
+          answers: Json
+          created_at?: string
+          updated_at?: string
+          partner_notified_at?: string | null
+        }
+        Update: {
+          id?: string
+          round_id?: string
+          user_id?: string
+          answers?: Json
+          created_at?: string
+          updated_at?: string
+          partner_notified_at?: string | null
+        }
+        Relationships: []
+      }
+      feature_flags: {
+        Row: {
+          key: string
+          mode: string
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          mode?: string
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          mode?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_tokens: {
         Row: {
           id: string
@@ -380,6 +479,9 @@ export type Database = {
     }
     Functions: {
       get_partner_id: { Args: { user_id: string }; Returns: string }
+      feature_enabled: { Args: { flag_key: string }; Returns: boolean }
+      question_state: { Args: Record<PropertyKey, never>; Returns: Json }
+      submit_answers: { Args: { p_round_id: string; p_answers: Json }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

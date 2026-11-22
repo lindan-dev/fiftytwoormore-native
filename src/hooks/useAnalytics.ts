@@ -21,7 +21,11 @@ export type EventName =
   | 'first_activity_logged'
   | 'activity_logged'
   | 'stats_viewed'
-  | 'return_visit';
+  | 'return_visit'
+  // Three things (weekly question). Never carries answer text.
+  | 'question_viewed'
+  | 'question_answered'
+  | 'question_revealed';
 
 export function useAnalytics() {
   const track = useCallback(async (

@@ -64,6 +64,8 @@ import FunnelAnalytics from "../components/FunnelAnalytics";
 import EmailPerformance from "../components/EmailPerformance";
 import TestUserManager from "../components/TestUserManager";
 import PushNotificationTester from "../components/PushNotificationTester";
+import WeeklyQuestion from "../components/WeeklyQuestion";
+import { useFeatureFlag } from "../lib/featureFlags";
 import { colors, radius, spacing } from "../theme/colors";
 
 interface Activity {
@@ -104,6 +106,11 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { track } = useAnalytics();
+
+  // Three things (Ticket 16/17): the card only mounts when the database flag is on for this user.
+  const threeThingsEnabled = useFeatureFlag("three_things");
+  const [questionRefreshToken, setQuestionRefreshToken] = useState(0);
+  const [questionFocusToken, setQuestionFocusToken] = useState(0);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -300,6 +307,7 @@ export default function HomeScreen() {
   const onRefresh = async () => {
     if (!userId) return;
     setRefreshing(true);
+    setQuestionRefreshToken((n) => n + 1);
     await checkPartnerStatus(userId);
     setRefreshing(false);
   };
@@ -503,6 +511,9 @@ export default function HomeScreen() {
       setView("stats");
     } else if (action === "openLogDialog") {
       openLogDialog();
+    } else if (action === "openQuestion") {
+      // Does nothing visible while the flag is off (the card isn't mounted).
+      setQuestionFocusToken((n) => n + 1);
     }
 
     navigation.setParams({ action: undefined });
@@ -703,6 +714,15 @@ export default function HomeScreen() {
               tapping "Log Now" below.
             </Text>
           </View>
+        )}
+
+        {hasPartner && threeThingsEnabled && userId && (
+          <WeeklyQuestion
+            userId={userId}
+            refreshToken={questionRefreshToken}
+            focusToken={questionFocusToken}
+            onLogMoment={openLogDialog}
+          />
         )}
 
         <Pressable style={styles.logNowButton} onPress={openLogDialog}>

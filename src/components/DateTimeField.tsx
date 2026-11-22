@@ -62,6 +62,12 @@ export default function DateTimeField({ value, onChange, maximumDate }: DateTime
                 value={tempValue}
                 mode={activeField}
                 display={Platform.OS === "ios" ? "spinner" : "default"}
+                // The app is always light (static colours), but userInterfaceStyle is "automatic", so with the
+                // phone in dark mode iOS drew the spinner with white digits on our white sheet (Ticket 13).
+                // themeVariant keeps the picker light; it is also supported by Expo's newer replacement
+                // component. textColor is an extra for the community package and can go if that is replaced.
+                themeVariant="light"
+                textColor={colors.foreground}
                 maximumDate={activeField === "date" ? maximumDate : undefined}
                 onChange={(_, selected) => {
                   if (selected) setTempValue(selected);
